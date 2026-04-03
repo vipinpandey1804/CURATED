@@ -1,0 +1,23 @@
+﻿
+Running 1 test using 1 worker
+
+Γ£à Step 1: Login successful
+Γ£à Step 2: Products page loaded with 20 product links
+Γ£à Step 3: Product detail page loaded ΓÇô URL: http://localhost:5173/products/cashmere-scarf
+Γ£à Size selected
+   Clicking Add to Bag button...
+   ΓÜá∩╕Å  Step 4: TIMED OUT waiting for Add to Bag API
+Γ£à Step 5: Cart page loaded
+Γ£à Step 6: Checkout shipping page ΓÇô URL: http://localhost:5173/checkout/shipping
+   Found 9 input fields on shipping page
+Γ£à Step 7: Shipping fields filled
+Γ£à Step 8: After "Continue to Payment" ΓÇô URL: http://localhost:5173/checkout/payment
+   Γ£à Successfully navigated to Payment page
+   Clicked Pay button, waiting for API response...
+   Order API Status: 400
+   Order API Response (first 500 chars): {"error":"CART_EMPTY","detail":"Your cart is empty."}
+ΓÜá∩╕Å  Step 9: Order creation returned status 400
+Γ£à Full flow test complete
+  Γ£ô  1 [chromium] ΓÇ║ e2e\full_flow.spec.js:3:1 ΓÇ║ Full E-Commerce Flow: Login, Browse Products, Add to Cart, Checkout (29.8s)
+
+  1 passed (32.8s)
