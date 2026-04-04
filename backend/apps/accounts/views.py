@@ -4,6 +4,9 @@ import random
 import string
 import uuid
 
+import requests as http_requests
+from allauth.socialaccount.providers.google.views import GoogleOAuth2Adapter
+from allauth.socialaccount.providers.oauth2.client import OAuth2Error
 from django.conf import settings
 from django.contrib.auth import authenticate, get_user_model
 from django.core.mail import send_mail
@@ -82,10 +85,24 @@ class RegisterView(APIView):
     def post(self, request):
         serializer = RegisterSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        user = serializer.save()
 
         email = serializer.validated_data.get("email", "")
         phone = serializer.validated_data.get("phone_number", "")
+
+        # Check if unverified user already exists — resend OTP instead of creating new
+        existing_user = None
+        if phone:
+            existing_user = User.objects.filter(phone_number=phone, is_verified=False).first()
+        elif email:
+            from allauth.account.models import EmailAddress
+            unverified_email = EmailAddress.objects.filter(email__iexact=email, verified=False).first()
+            if unverified_email:
+                existing_user = unverified_email.user
+
+        if existing_user:
+            user = existing_user
+        else:
+            user = serializer.save()
 
         # Create and send OTP
         code = "".join(random.choices(string.digits, k=6))
@@ -266,8 +283,10 @@ class OTPVerifyView(APIView):
                 status=status.HTTP_401_UNAUTHORIZED,
             )
 
-        # Mark user as verified on first successful OTP
-        if not user.is_verified:
+        if phone and not user.is_verified:
+            user.is_verified = True
+            user.save(update_fields=["is_verified"])
+        elif not user.is_verified:
             user.is_verified = True
             user.save(update_fields=["is_verified"])
 
@@ -283,6 +302,61 @@ class OTPVerifyView(APIView):
         )
 
 
+
+
+class GoogleLoginView(APIView):
+    """POST /api/v1/auth/google/ — verify Google id_token via allauth and return app JWT."""
+
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        id_token = request.data.get("credential", "")
+        if not id_token:
+            return Response({"detail": "Google credential is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Verify id_token with Google's tokeninfo endpoint
+        google_resp = http_requests.get(
+            "https://oauth2.googleapis.com/tokeninfo",
+            params={"id_token": id_token},
+            timeout=10,
+        )
+        if google_resp.status_code != 200:
+            return Response({"detail": "Invalid Google token."}, status=status.HTTP_401_UNAUTHORIZED)
+
+        info = google_resp.json()
+
+        # Validate audience matches our client ID
+        client_id = settings.SOCIALACCOUNT_PROVIDERS.get("google", {}).get("APP", {}).get("client_id", "")
+        if info.get("aud") != client_id:
+            return Response({"detail": "Token audience mismatch."}, status=status.HTTP_401_UNAUTHORIZED)
+
+        email = (info.get("email") or "").lower().strip()
+        if not email:
+            return Response({"detail": "Google account has no email."}, status=status.HTTP_400_BAD_REQUEST)
+
+        user, created = User.objects.get_or_create(
+            email=email,
+            defaults={
+                "first_name": info.get("given_name", ""),
+                "last_name": info.get("family_name", ""),
+                "is_verified": True,
+            },
+        )
+        if created:
+            user.set_unusable_password()
+            user.save()
+        elif not user.is_verified:
+            user.is_verified = True
+            user.save(update_fields=["is_verified"])
+
+        refresh = RefreshToken.for_user(user)
+        return Response({
+            "user": UserSerializer(user).data,
+            "tokens": {
+                "refresh": str(refresh),
+                "access": str(refresh.access_token),
+            },
+        })
 
 
 class PasswordResetRequestView(APIView):

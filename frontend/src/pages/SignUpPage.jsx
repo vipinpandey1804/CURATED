@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Eye, EyeOff } from 'lucide-react';
+import { GoogleLogin } from '@react-oauth/google';
 import { useAuth } from '../context/AuthContext';
 import Input from '../components/ui/Input';
 import Button from '../components/ui/Button';
 
 export default function SignUpPage() {
-  const { signup } = useAuth();
+  const { signup, googleLogin } = useAuth();
   const navigate = useNavigate();
   const [mode, setMode] = useState('email'); // 'email' | 'phone'
   const [form, setForm] = useState({ firstName: '', lastName: '', email: '', phoneNumber: '', password: '', confirm: '' });
@@ -25,6 +26,15 @@ export default function SignUpPage() {
     if (form.password.length < 8) errs.password = 'Minimum 8 characters';
     if (form.password !== form.confirm) errs.confirm = 'Passwords do not match';
     return errs;
+  };
+
+  const handleGoogleSuccess = async (credentialResponse) => {
+    try {
+      await googleLogin(credentialResponse.credential);
+      navigate('/');
+    } catch {
+      setErrors({ general: 'Google sign-in failed. Please try again.' });
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -211,9 +221,15 @@ export default function SignUpPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <Button variant="outline" type="button">Google</Button>
-            <Button variant="outline" type="button">Apple</Button>
+          <div className="flex flex-col items-center gap-3">
+            <GoogleLogin
+              onSuccess={handleGoogleSuccess}
+              onError={() => setErrors({ general: 'Google sign-in failed. Please try again.' })}
+              width="100%"
+              text="continue_with"
+              shape="rectangular"
+              theme="outline"
+            />
           </div>
 
           <p className="text-center text-sm text-brand-muted mt-8">

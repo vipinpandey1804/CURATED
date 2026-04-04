@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
+from allauth.account.models import EmailAddress
 
 from .models import Profile, Address
 
@@ -22,8 +23,7 @@ class UserSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
-        # Hide placeholder emails used for phone-only accounts
-        if isinstance(data.get("email"), str) and data["email"].endswith("@placeholder.curated"):
+        if data.get("email") is None:
             data["email"] = ""
         return data
 
@@ -67,13 +67,22 @@ class RegisterSerializer(serializers.Serializer):
         return data
 
     def validate_email(self, value):
-        if value and User.objects.filter(email__iexact=value).exists():
-            raise serializers.ValidationError("A user with this email already exists.")
+        if value:
+            existing = User.objects.filter(email__iexact=value).first()
+            if existing:
+                email_verified = EmailAddress.objects.filter(email__iexact=value, verified=True).exists()
+                if email_verified:
+                    raise serializers.ValidationError("A user with this email already exists.")
+                # Email exists but not verified — allow re-registration, OTP will be resent
         return value.lower() if value else value
 
     def validate_phone_number(self, value):
-        if value and User.objects.filter(phone_number=value).exists():
-            raise serializers.ValidationError("A user with this phone number already exists.")
+        if value:
+            existing = User.objects.filter(phone_number=value).first()
+            if existing:
+                if existing.is_verified:
+                    raise serializers.ValidationError("A user with this phone number already exists.")
+                # Phone exists but not verified — allow re-registration, OTP will be resent
         return value
 
     def create(self, validated_data):

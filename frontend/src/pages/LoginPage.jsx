@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Eye, EyeOff } from 'lucide-react';
+import { GoogleLogin } from '@react-oauth/google';
 import { useAuth } from '../context/AuthContext';
 import Input from '../components/ui/Input';
 import Button from '../components/ui/Button';
 
 export default function LoginPage() {
-  const { login } = useAuth();
+  const { login, googleLogin } = useAuth();
   const navigate = useNavigate();
   const [mode, setMode] = useState('email'); // 'email' | 'phone'
   const [form, setForm] = useState({ email: '', phoneNumber: '', password: '' });
@@ -15,6 +16,19 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
 
   const handleChange = (e) => setForm({ ...form, [e.target.id]: e.target.value });
+
+  const handleGoogleSuccess = async (credentialResponse) => {
+    setError('');
+    setLoading(true);
+    try {
+      await googleLogin(credentialResponse.credential);
+      navigate('/');
+    } catch {
+      setError('Google sign-in failed. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -166,13 +180,15 @@ export default function LoginPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <Button variant="outline" type="button" className="w-full text-xs">
-              Google
-            </Button>
-            <Button variant="outline" type="button" className="w-full text-xs">
-              Apple
-            </Button>
+          <div className="flex flex-col items-center gap-3">
+            <GoogleLogin
+              onSuccess={handleGoogleSuccess}
+              onError={() => setError('Google sign-in failed. Please try again.')}
+              width="100%"
+              text="continue_with"
+              shape="rectangular"
+              theme="outline"
+            />
           </div>
 
           <p className="text-center text-sm text-brand-muted mt-8">

@@ -11,10 +11,9 @@ class UserManager(BaseUserManager):
     def create_user(self, email=None, password=None, phone_number=None, **extra_fields):
         if not email and not phone_number:
             raise ValueError("Email or phone number is required")
-        if not email:
-            email = f"phone_{phone_number}@placeholder.curated"
-        email = self.normalize_email(email)
-        user = self.model(email=email, phone_number=phone_number, **extra_fields)
+        if email:
+            email = self.normalize_email(email)
+        user = self.model(email=email or None, phone_number=phone_number, **extra_fields)
         if password:
             user.set_password(password)
         else:
@@ -30,7 +29,7 @@ class UserManager(BaseUserManager):
 
 class User(AbstractBaseUser, PermissionsMixin):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    email = models.EmailField(unique=True)
+    email = models.EmailField(unique=True, blank=True, null=True, default=None)
     phone_number = models.CharField(max_length=20, unique=True, blank=True, null=True, default=None)
     first_name = models.CharField(max_length=150, blank=True)
     last_name = models.CharField(max_length=150, blank=True)
@@ -48,7 +47,7 @@ class User(AbstractBaseUser, PermissionsMixin):
         db_table = "accounts_user"
 
     def __str__(self):
-        return self.email
+        return self.email or self.phone_number or str(self.id)
 
     @property
     def full_name(self):

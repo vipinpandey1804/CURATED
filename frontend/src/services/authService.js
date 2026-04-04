@@ -117,4 +117,12 @@ export const authService = {
     const { data } = await api.post('/auth/password/reset/confirm/', { token, password });
     return data;
   },
+
+  async googleLogin(credential) {
+    // credential is a Google id_token verified server-side via allauth
+    const { data } = await api.post('/auth/google/', { credential });
+    localStorage.setItem('access_token', data.tokens.access);
+    localStorage.setItem('refresh_token', data.tokens.refresh);
+    return data;
+  },
 };
