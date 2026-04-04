@@ -12,7 +12,7 @@
 import { test, expect } from '@playwright/test';
 
 const TEST_EMAIL    = 'vipinpandey1804@gmail.com';
-const TEST_PASSWORD = 'Admin@123';
+const TEST_PASSWORD = 'Admin@9808';
 const API_BASE      = 'http://localhost:8000/api/v1';
 
 // ─── helpers ─────────────────────────────────────────────────────────────────

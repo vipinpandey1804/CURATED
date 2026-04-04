@@ -282,3 +282,7 @@ DEFAULT_FROM_EMAIL = os.environ.get(
 TWILIO_ACCOUNT_SID = os.environ.get("TWILIO_ACCOUNT_SID", "")
 TWILIO_AUTH_TOKEN = os.environ.get("TWILIO_AUTH_TOKEN", "")
 TWILIO_PHONE_NUMBER = os.environ.get("TWILIO_PHONE_NUMBER", "")
+
+# ─── Frontend URL ──────────────────────────────────────────────────────────────────────
+
+FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:5173")

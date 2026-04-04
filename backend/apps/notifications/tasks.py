@@ -7,7 +7,8 @@ Usage:
 """
 import logging
 from django.conf import settings
-from django.core.mail import send_mail
+from django.core.mail import EmailMultiAlternatives
+from django.template.loader import render_to_string
 from django.utils import timezone
 
 logger = logging.getLogger(__name__)
@@ -30,42 +31,100 @@ def _log_notification(user_id, channel, event_type, subject, body_preview, statu
     )
 
 
-def _send_email(to_email, subject, body):
-    send_mail(
+def _send_email(to_email, subject, html_body, text_body):
+    email = EmailMultiAlternatives(
         subject=subject,
-        message=body,
-        from_email=settings.DEFAULT_FROM_EMAIL if hasattr(settings, "DEFAULT_FROM_EMAIL") else "noreply@curated.com",
-        recipient_list=[to_email],
-        fail_silently=False,
+        body=text_body,
+        from_email=getattr(settings, "DEFAULT_FROM_EMAIL", "noreply@curated.com"),
+        to=[to_email],
+    )
+    email.attach_alternative(html_body, "text/html")
+    email.send(fail_silently=False)
+
+
+def _send_sms(to_phone, body):
+    """Send SMS via Twilio."""
+    twilio_sid   = getattr(settings, "TWILIO_ACCOUNT_SID", "")
+    twilio_token = getattr(settings, "TWILIO_AUTH_TOKEN", "")
+    twilio_from  = getattr(settings, "TWILIO_PHONE_NUMBER", "")
+    if not (twilio_sid and twilio_token and twilio_from):
+        logger.info("DEV MODE — SMS to %s: %s", to_phone, body)
+        return
+    from twilio.rest import Client
+    Client(twilio_sid, twilio_token).messages.create(
+        body=body,
+        from_=twilio_from,
+        to=to_phone,
     )
 
 
 # ─── Order events ─────────────────────────────────────────────────────────────
 
 def send_order_confirmed(order_id: str):
-    """Email + SMS after order is confirmed (payment webhook fires)."""
+    """
+    Notify user after order is placed — dispatched via Django Q.
+    - Has email  → send HTML email
+    - Phone only → send SMS with order summary + link
+    """
     from apps.orders.models import Order
     try:
-        order = Order.objects.select_related("user").get(id=order_id)
+        order = Order.objects.select_related("user").prefetch_related("items").get(id=order_id)
     except Order.DoesNotExist:
         logger.error("send_order_confirmed: order %s not found", order_id)
         return
 
-    user = order.user
-    subject = f"Order Confirmed — {order.order_number}"
-    body = (
-        f"Hi {user.full_name or user.email},\n\n"
-        f"Your order {order.order_number} has been confirmed.\n"
-        f"Total: {order.total}\n\n"
-        "Thank you for shopping with CURATED."
-    )
+    user      = order.user
+    user_name = user.full_name or "there"
+    order_url = f"{settings.FRONTEND_URL}/order-confirmation?order={order.order_number}"
 
-    try:
-        _send_email(user.email, subject, body)
-        _log_notification(user.id, "EMAIL", "order_confirmed", subject, body, "SENT")
-    except Exception as exc:  # noqa: BLE001
-        logger.exception("send_order_confirmed email failed: %s", exc)
-        _log_notification(user.id, "EMAIL", "order_confirmed", subject, body, "FAILED", str(exc))
+    # ── Email path ────────────────────────────────────────────────────────────
+    if user.email:
+        subject  = f"Order Confirmed — {order.order_number}"
+        context  = {"order": order, "user_name": user_name, "frontend_url": settings.FRONTEND_URL}
+        html_body = render_to_string("emails/order_confirmed.html", context)
+        text_body = (
+            f"Hi {user_name},\n\n"
+            f"Your order {order.order_number} has been placed.\n"
+            f"Total: {order.total}\n\n"
+            f"View your order: {order_url}\n\n"
+            f"CURATED Team"
+        )
+        try:
+            _send_email(user.email, subject, html_body, text_body)
+            _log_notification(user.id, "EMAIL", "order_confirmed", subject, text_body, "SENT")
+            logger.info("send_order_confirmed: email sent to %s", user.email)
+        except Exception as exc:
+            logger.exception("send_order_confirmed email failed: %s", exc)
+            _log_notification(user.id, "EMAIL", "order_confirmed", subject, text_body, "FAILED", str(exc))
+        return
+
+    # ── SMS path (phone-only user) ────────────────────────────────────────────
+    if user.phone_number:
+        # Build compact item summary (max 3 items to keep SMS short)
+        items = list(order.items.all())
+        item_lines = ""
+        for item in items[:3]:
+            item_lines += f"  {item.product_name} x{item.quantity} — {item.line_total}\n"
+        if len(items) > 3:
+            item_lines += f"  ...and {len(items) - 3} more item(s)\n"
+
+        sms_body = (
+            f"CURATED — Order Confirmed!\n"
+            f"Order: {order.order_number}\n"
+            f"{item_lines}"
+            f"Total: {order.total}\n"
+            f"View: {order_url}"
+        )
+        try:
+            _send_sms(user.phone_number, sms_body)
+            _log_notification(user.id, "SMS", "order_confirmed", f"Order Confirmed — {order.order_number}", sms_body, "SENT")
+            logger.info("send_order_confirmed: SMS sent to %s", user.phone_number)
+        except Exception as exc:
+            logger.exception("send_order_confirmed SMS failed: %s", exc)
+            _log_notification(user.id, "SMS", "order_confirmed", f"Order Confirmed — {order.order_number}", sms_body, "FAILED", str(exc))
+        return
+
+    logger.warning("send_order_confirmed: user %s has no email or phone, skipping", user.id)
 
 
 def send_order_shipped(shipment_id: str):
@@ -80,7 +139,7 @@ def send_order_shipped(shipment_id: str):
     order = shipment.order
     user = order.user
     subject = f"Your Order Has Shipped — {order.order_number}"
-    body = (
+    text_body = (
         f"Hi {user.full_name or user.email},\n\n"
         f"Your order {order.order_number} is on its way!\n"
         f"Carrier: {shipment.carrier or 'N/A'}\n"
@@ -89,11 +148,11 @@ def send_order_shipped(shipment_id: str):
     )
 
     try:
-        _send_email(user.email, subject, body)
-        _log_notification(user.id, "EMAIL", "order_shipped", subject, body, "SENT")
+        _send_email(user.email, subject, text_body, text_body)
+        _log_notification(user.id, "EMAIL", "order_shipped", subject, text_body, "SENT")
     except Exception as exc:  # noqa: BLE001
         logger.exception("send_order_shipped email failed: %s", exc)
-        _log_notification(user.id, "EMAIL", "order_shipped", subject, body, "FAILED", str(exc))
+        _log_notification(user.id, "EMAIL", "order_shipped", subject, text_body, "FAILED", str(exc))
 
 
 def send_refund_processed(order_id: str, amount: str):
@@ -107,7 +166,7 @@ def send_refund_processed(order_id: str, amount: str):
 
     user = order.user
     subject = f"Refund Processed — {order.order_number}"
-    body = (
+    text_body = (
         f"Hi {user.full_name or user.email},\n\n"
         f"A refund of {amount} has been processed for order {order.order_number}.\n"
         "Please allow 5-10 business days for it to appear.\n\n"
@@ -115,11 +174,11 @@ def send_refund_processed(order_id: str, amount: str):
     )
 
     try:
-        _send_email(user.email, subject, body)
-        _log_notification(user.id, "EMAIL", "refund_processed", subject, body, "SENT")
+        _send_email(user.email, subject, text_body, text_body)
+        _log_notification(user.id, "EMAIL", "refund_processed", subject, text_body, "SENT")
     except Exception as exc:  # noqa: BLE001
         logger.exception("send_refund_processed email failed: %s", exc)
-        _log_notification(user.id, "EMAIL", "refund_processed", subject, body, "FAILED", str(exc))
+        _log_notification(user.id, "EMAIL", "refund_processed", subject, text_body, "FAILED", str(exc))
 
 
 def send_return_approved(return_request_id: str):
@@ -133,7 +192,7 @@ def send_return_approved(return_request_id: str):
 
     user = rr.user
     subject = f"Return Approved — {rr.order.order_number}"
-    body = (
+    text_body = (
         f"Hi {user.full_name or user.email},\n\n"
         f"Your return request for order {rr.order.order_number} has been approved.\n"
         "Please ship the items back within 7 days.\n\n"
@@ -141,11 +200,11 @@ def send_return_approved(return_request_id: str):
     )
 
     try:
-        _send_email(user.email, subject, body)
-        _log_notification(user.id, "EMAIL", "return_approved", subject, body, "SENT")
+        _send_email(user.email, subject, text_body, text_body)
+        _log_notification(user.id, "EMAIL", "return_approved", subject, text_body, "SENT")
     except Exception as exc:  # noqa: BLE001
         logger.exception("send_return_approved email failed: %s", exc)
-        _log_notification(user.id, "EMAIL", "return_approved", subject, body, "FAILED", str(exc))
+        _log_notification(user.id, "EMAIL", "return_approved", subject, text_body, "FAILED", str(exc))
 
 
 # ─── Inventory: activate reservoir after payment ──────────────────────────────
@@ -156,20 +215,39 @@ def commit_stock_reservations(order_id: str):
     Called after checkout.session.completed webhook is processed.
     """
     from django.db import transaction
-    from apps.inventory.models import StockReservation, InventoryMovement
+    from apps.inventory.models import StockReservation, InventoryMovement, StockLevel
+    from apps.orders.models import Order
 
-    reservations = StockReservation.objects.filter(
-        cart__order__id=order_id,
-        is_active=True,
-    ).select_related("cart", "variant")
+    try:
+        order = Order.objects.prefetch_related("items__variant__stock").get(id=order_id)
+    except Order.DoesNotExist:
+        logger.error("commit_stock_reservations: order %s not found", order_id)
+        return
 
     with transaction.atomic():
-        for res in reservations:
+        for item in order.items.all():
+            if not item.variant:
+                continue
+            try:
+                stock_level = item.variant.stock
+            except StockLevel.DoesNotExist:
+                logger.warning("commit_stock_reservations: no stock level for variant %s", item.variant_id)
+                continue
+
+            # Deactivate matching reservation
+            reservation = StockReservation.objects.filter(
+                stock_level=stock_level,
+                order_reference=str(order_id),
+                is_active=True,
+            ).first()
+            if reservation:
+                reservation.is_active = False
+                reservation.save(update_fields=["is_active"])
+
+            # Record the sale movement
             InventoryMovement.objects.create(
-                variant=res.variant,
+                stock_level=stock_level,
                 movement_type=InventoryMovement.MovementType.SALE,
-                quantity_change=-res.quantity,
-                reference=f"ORDER:{order_id}",
+                quantity_change=-item.quantity,
+                reference=f"ORDER:{order.order_number}",
             )
-            res.is_active = False
-            res.save(update_fields=["is_active"])

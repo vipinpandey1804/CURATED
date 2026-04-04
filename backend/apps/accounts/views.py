@@ -374,7 +374,7 @@ class PasswordResetRequestView(APIView):
                 "user_id": str(user.id),
                 "expires_at": timezone.now() + timedelta(hours=1),
             }
-            reset_url = f"http://localhost:5173/reset-password?token={token}"
+            reset_url = f"{settings.FRONTEND_URL}/reset-password?token={token}"
             try:
                 send_mail(
                     subject="Reset your CURATED password",

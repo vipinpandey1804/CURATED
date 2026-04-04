@@ -10,8 +10,9 @@ export function normalizeProduct(p) {
 
   // Variants: normalize to { id, sku, name, color, size, effectivePrice, isActive }
   const variants = (p.variants || []).map((v) => {
-    const color = v.attributes.find((a) => a?.typeName === 'Color')?.value || '';
-    const size = v.attributes.find((a) => a?.typeName === 'Size' || a?.typeName === 'Shoe Size')?.value || 'One Size';
+    const attrs = v.attributes || [];
+    const color = attrs.find((a) => a?.typeName === 'Color')?.value || '';
+    const size = attrs.find((a) => a?.typeName === 'Size' || a?.typeName === 'Shoe Size')?.value || 'One Size';
     return {
       id: v.id,
       sku: v.sku,
@@ -20,7 +21,7 @@ export function normalizeProduct(p) {
       size,
       effectivePrice: parseFloat(v.effectivePrice?.amount ?? v.effectivePrice ?? p.basePrice?.amount ?? p.basePrice ?? 0),
       isActive: v.isActive ?? true,
-      attributes: v.attributes || [],
+      attributes: attrs,
     };
   });
 

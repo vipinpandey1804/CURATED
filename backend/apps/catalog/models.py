@@ -84,6 +84,9 @@ class Product(TimestampedModel):
             models.Index(fields=["slug"]),
             models.Index(fields=["category", "is_active"]),
             models.Index(fields=["is_active", "is_new"]),
+            models.Index(fields=["is_active", "is_featured"]),
+            models.Index(fields=["is_active", "-created_at"]),
+            models.Index(fields=["is_active", "base_price"]),
         ]
 
     def __str__(self):

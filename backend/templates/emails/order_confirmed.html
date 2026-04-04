@@ -1,0 +1,99 @@
+{% extends "emails/base_email.html" %}
+
+{% block title %}Order Confirmed — {{ order.order_number }}{% endblock %}
+
+{% block content %}
+
+  <p class="greeting">Thank you for your order.</p>
+  <p class="subtext">
+    Hi {{ user_name }}, your order has been placed and is being processed.<br />
+    We'll send you another email when it ships.
+  </p>
+
+  <!-- Order meta -->
+  <p class="section-label">Order Details</p>
+  <table style="width:100%; font-size:13px; margin-bottom:24px;">
+    <tr>
+      <td style="color:#6b6b6b; padding:4px 0;">Order Number</td>
+      <td style="text-align:right; font-weight:500;">{{ order.order_number }}</td>
+    </tr>
+    <tr>
+      <td style="color:#6b6b6b; padding:4px 0;">Date</td>
+      <td style="text-align:right;">{{ order.created_at|date:"d M Y, H:i" }} UTC</td>
+    </tr>
+    <tr>
+      <td style="color:#6b6b6b; padding:4px 0;">Payment Status</td>
+      <td style="text-align:right;">{{ order.get_payment_status_display }}</td>
+    </tr>
+  </table>
+
+  <hr class="divider" />
+
+  <!-- Items -->
+  <p class="section-label">Items Ordered</p>
+  <table class="items-table">
+    <thead>
+      <tr>
+        <th>Product</th>
+        <th style="text-align:center;">Qty</th>
+        <th style="text-align:right;">Price</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in order.items.all %}
+      <tr>
+        <td>
+          <div class="item-name">{{ item.product_name }}</div>
+          {% if item.variant_name %}
+            <div class="item-variant">{{ item.variant_name }}</div>
+          {% endif %}
+          <div class="item-variant">SKU: {{ item.sku }}</div>
+        </td>
+        <td style="text-align:center;">{{ item.quantity }}</td>
+        <td class="price">{{ item.line_total }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <!-- Totals -->
+  <table class="totals">
+    <tr>
+      <td>Subtotal</td>
+      <td>{{ order.subtotal }}</td>
+    </tr>
+    <tr>
+      <td>Shipping</td>
+      <td>{% if order.shipping_cost.amount == 0 %}Free{% else %}{{ order.shipping_cost }}{% endif %}</td>
+    </tr>
+    {% if order.discount_amount.amount > 0 %}
+    <tr class="discount-row">
+      <td>Discount{% if order.coupon_code %} ({{ order.coupon_code }}){% endif %}</td>
+      <td>-{{ order.discount_amount }}</td>
+    </tr>
+    {% endif %}
+    <tr class="total-row">
+      <td>Total</td>
+      <td>{{ order.total }}</td>
+    </tr>
+  </table>
+
+  <hr class="divider" />
+
+  <!-- Shipping address -->
+  <p class="section-label">Shipping To</p>
+  <div class="address-box">
+    {{ order.shipping_full_name }}<br />
+    {{ order.shipping_address_line_1 }}
+    {% if order.shipping_address_line_2 %}, {{ order.shipping_address_line_2 }}{% endif %}<br />
+    {{ order.shipping_city }}{% if order.shipping_state %}, {{ order.shipping_state }}{% endif %} {{ order.shipping_postal_code }}<br />
+    {{ order.shipping_country }}
+    {% if order.shipping_phone %}<br />{{ order.shipping_phone }}{% endif %}
+  </div>
+
+  <!-- CTA -->
+  <a href="{{ frontend_url }}/order-confirmation?order={{ order.order_number }}" class="btn">
+    View Order
+  </a>
+
+{% endblock %}

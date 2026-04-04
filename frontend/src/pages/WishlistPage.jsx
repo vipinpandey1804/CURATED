@@ -15,8 +15,9 @@ export default function WishlistPage() {
   });
 
   function handleAddToCart(product) {
-    const variant = product.variants?.[0] || { id: null };
-    add(product, variant, product.sizes?.[0] || 'One Size');
+    const variant = product.variants?.[0];
+    if (!variant?.id) return;
+    add(product, variant, 1);
   }
 
   if (displayItems.length === 0) {

@@ -1,8 +1,13 @@
+from django.db import models
+from django.db.models import Prefetch, Count
 from rest_framework import viewsets, permissions, filters
 from django_filters import rest_framework as django_filters
 from rest_framework.filters import SearchFilter, OrderingFilter
+from django.utils.decorators import method_decorator
+from django.views.decorators.cache import cache_page
+from django.views.decorators.vary import vary_on_headers
 
-from .models import Category, Product, AttributeType
+from .models import Category, Product, ProductImage, ProductVariant, AttributeType
 from .serializers import (
     CategorySerializer,
     ProductListSerializer,
@@ -33,7 +38,8 @@ class CategoryViewSet(viewsets.ReadOnlyModelViewSet):
     def get_queryset(self):
         return (
             Category.objects.filter(is_active=True, parent__isnull=True)
-            .prefetch_related("children", "products")
+            .prefetch_related("children")
+            .annotate(product_count=Count("products", filter=models.Q(products__is_active=True)))
         )
 
 
@@ -47,17 +53,50 @@ class ProductViewSet(viewsets.ReadOnlyModelViewSet):
     ordering = ["-created_at"]
 
     def get_queryset(self):
+        if self.action == "retrieve":
+            # Detail: full variant + attribute data needed
+            return (
+                Product.objects.filter(is_active=True)
+                .select_related("category")
+                .prefetch_related(
+                    Prefetch("images", queryset=ProductImage.objects.order_by("sort_order")),
+                    Prefetch(
+                        "variants",
+                        queryset=ProductVariant.objects.filter(is_active=True)
+                        .prefetch_related("attributes__attribute_type"),
+                    ),
+                )
+            )
+        # List: minimal data — only first image and variant ids needed
         return (
             Product.objects.filter(is_active=True)
             .select_related("category")
-            .prefetch_related("images", "variants__attributes__attribute_type")
-            .distinct()
+            .prefetch_related(
+                Prefetch(
+                    "images",
+                    queryset=ProductImage.objects.order_by("sort_order"),
+                    to_attr="prefetched_images",
+                ),
+                Prefetch(
+                    "variants",
+                    queryset=ProductVariant.objects.filter(is_active=True).only(
+                        "id", "sku", "name", "is_active", "product_id"
+                    ),
+                    to_attr="prefetched_variants",
+                ),
+            )
+            .annotate(variant_count=Count("variants", filter=models.Q(variants__is_active=True)))
         )
 
     def get_serializer_class(self):
         if self.action == "retrieve":
             return ProductDetailSerializer
         return ProductListSerializer
+
+    @method_decorator(cache_page(60 * 5))   # cache list for 5 minutes
+    @method_decorator(vary_on_headers("Authorization"))
+    def list(self, request, *args, **kwargs):
+        return super().list(request, *args, **kwargs)
 
 
 class AttributeTypeViewSet(viewsets.ReadOnlyModelViewSet):

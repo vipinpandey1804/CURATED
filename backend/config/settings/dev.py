@@ -28,3 +28,11 @@ else:
 
 # CORS allow all in dev
 CORS_ALLOW_ALL_ORIGINS = True
+
+# Use database cache in dev — avoids needing Redis running locally
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.db.DatabaseCache",
+        "LOCATION": "django_cache",
+    }
+}

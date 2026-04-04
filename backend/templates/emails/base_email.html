@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block title %}CURATED{% endblock %}</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background-color: #f5f4f0;
+      font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+      color: #1a1a1a;
+      -webkit-font-smoothing: antialiased;
+    }
+    .wrapper {
+      max-width: 600px;
+      margin: 40px auto;
+      background: #ffffff;
+    }
+    /* Header */
+    .header {
+      background-color: #1a1a1a;
+      padding: 28px 40px;
+      text-align: center;
+    }
+    .header a {
+      color: #ffffff;
+      text-decoration: none;
+      font-size: 18px;
+      letter-spacing: 6px;
+      text-transform: uppercase;
+      font-weight: 400;
+    }
+    /* Body */
+    .body {
+      padding: 40px;
+    }
+    .greeting {
+      font-size: 22px;
+      font-weight: 300;
+      margin-bottom: 8px;
+      color: #1a1a1a;
+    }
+    .subtext {
+      font-size: 14px;
+      color: #6b6b6b;
+      margin-bottom: 32px;
+      line-height: 1.6;
+    }
+    /* Section label */
+    .section-label {
+      font-size: 10px;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      color: #6b6b6b;
+      margin-bottom: 12px;
+    }
+    /* Divider */
+    .divider {
+      border: none;
+      border-top: 1px solid #e8e6e1;
+      margin: 24px 0;
+    }
+    /* Items table */
+    .items-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 24px;
+    }
+    .items-table th {
+      font-size: 10px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: #6b6b6b;
+      text-align: left;
+      padding: 8px 0;
+      border-bottom: 1px solid #e8e6e1;
+    }
+    .items-table td {
+      font-size: 13px;
+      padding: 14px 0;
+      border-bottom: 1px solid #f0ede8;
+      vertical-align: top;
+      color: #1a1a1a;
+    }
+    .items-table td.price {
+      text-align: right;
+      white-space: nowrap;
+    }
+    .item-name { font-weight: 500; }
+    .item-variant { font-size: 12px; color: #6b6b6b; margin-top: 2px; }
+    /* Totals */
+    .totals {
+      width: 100%;
+      margin-bottom: 32px;
+    }
+    .totals tr td {
+      font-size: 13px;
+      padding: 5px 0;
+      color: #1a1a1a;
+    }
+    .totals tr td:last-child { text-align: right; }
+    .totals tr.total-row td {
+      font-size: 15px;
+      font-weight: 600;
+      padding-top: 12px;
+      border-top: 1px solid #1a1a1a;
+    }
+    .totals tr.discount-row td { color: #2d7a4f; }
+    /* Address box */
+    .address-box {
+      background: #f5f4f0;
+      padding: 20px 24px;
+      font-size: 13px;
+      line-height: 1.8;
+      color: #1a1a1a;
+      margin-bottom: 32px;
+    }
+    /* CTA button */
+    .btn {
+      display: inline-block;
+      background-color: #1a1a1a;
+      color: #ffffff !important;
+      text-decoration: none;
+      font-size: 11px;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      padding: 14px 32px;
+      margin-bottom: 32px;
+    }
+    /* Footer */
+    .footer {
+      background-color: #f5f4f0;
+      padding: 28px 40px;
+      text-align: center;
+    }
+    .footer p {
+      font-size: 11px;
+      color: #9a9a9a;
+      line-height: 1.8;
+    }
+    .footer a { color: #6b6b6b; text-decoration: none; }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+
+    <div class="header">
+      <a href="{{ frontend_url }}">CURATED</a>
+    </div>
+
+    <div class="body">
+      {% block content %}{% endblock %}
+    </div>
+
+    <div class="footer">
+      <p>
+        © 2024 CURATED. All rights reserved.<br />
+        <a href="#">Privacy Policy</a> &nbsp;&middot;&nbsp;
+        <a href="#">Terms of Service</a> &nbsp;&middot;&nbsp;
+        <a href="#">Contact Us</a>
+      </p>
+    </div>
+
+  </div>
+</body>
+</html>

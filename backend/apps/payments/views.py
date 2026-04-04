@@ -71,8 +71,8 @@ class CreateCheckoutSessionView(APIView):
                 payment_method_types=["card"],
                 line_items=line_items,
                 mode="payment",
-                success_url=f"{settings.CORS_ALLOWED_ORIGINS[0]}/order-confirmation?order={order.order_number}",
-                cancel_url=f"{settings.CORS_ALLOWED_ORIGINS[0]}/cart",
+                success_url=f"{settings.FRONTEND_URL}/order-confirmation?order={order.order_number}",
+                cancel_url=f"{settings.FRONTEND_URL}/cart",
                 client_reference_id=str(order.id),
                 customer_email=request.user.email,
                 metadata={
