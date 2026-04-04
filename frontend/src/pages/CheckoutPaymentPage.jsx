@@ -75,8 +75,8 @@ export default function CheckoutPaymentPage() {
       };
       const order = await orderService.createOrder(orderPayload);
       // 3. Get Stripe Checkout URL
-      const session = await orderService.createCheckoutSession(order.orderNumber || order.id);
-      const checkoutUrl = session.checkoutUrl || session.url;
+      const session = await orderService.createCheckoutSession(order.order_number || order.orderNumber || order.id);
+      const checkoutUrl = session.checkout_url || session.checkoutUrl || session.url;
       if (checkoutUrl) {
         window.location.href = checkoutUrl;
       } else {

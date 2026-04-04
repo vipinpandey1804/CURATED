@@ -1,210 +1,178 @@
 import { test, expect } from '@playwright/test';
 
-test('Full E-Commerce Flow: Login, Browse Products, Add to Cart, Checkout', async ({ page }) => {
-  test.setTimeout(120_000);
+const USER_EMAIL    = 'vipinpandey1804@gmail.com';
+const USER_PASSWORD = 'Admin@123';
 
-  // ── 1. LOGIN ──────────────────────────────────────────────────────────────
-  await page.goto('/login');
-  await page.getByLabel(/email address/i).fill('vipinpandey1804@gmail.com');
-  await page.getByPlaceholder('••••••••').fill('Admin@123');
-  await page.getByRole('button', { name: /sign in/i }).click();
+test.describe('Full E-Commerce Flow', () => {
+  test.setTimeout(300_000);
 
-  // Wait for redirect to home
-  await expect(page).toHaveURL(/^\/$|\/products|\/(?!\/)/, { timeout: 15000 });
-  await page.waitForLoadState('networkidle');
-  console.log('✅ Step 1: Login successful');
+  test('Login -> Browse -> Add to Cart -> Checkout -> Stripe', async ({ page }) => {
 
-  // ── 2. BROWSE PRODUCTS ─────────────────────────────────────────────────
-  await page.goto('/products');
-  await page.waitForLoadState('networkidle');
-  await page.waitForTimeout(1000);
+    // ── 1. LOGIN ────────────────────────────────────────────────────────────
+    await page.goto('/login');
+    await page.getByLabel(/email address/i).fill(USER_EMAIL);
+    await page.getByPlaceholder('••••••••').fill(USER_PASSWORD);
 
-  // Products should be visible (either from API or mock data fallback)
-  const productCards = page.locator('a[href^="/products/"]');
-  const cardCount = await productCards.count();
-  console.log(`✅ Step 2: Products page loaded with ${cardCount} product links`);
-  expect(cardCount).toBeGreaterThan(0);
+    const loginResp = page.waitForResponse(
+      r => r.url().includes('/auth/') && r.request().method() === 'POST'
+    );
+    await page.getByRole('button', { name: /sign in/i }).click();
+    const lr = await loginResp;
+    expect(lr.status(), 'Login should return 200').toBe(200);
+    await page.waitForURL(u => ['/', '/products'].includes(new URL(u).pathname), { timeout: 15000 });
+    console.log('OK 1. Login -', page.url());
 
-  // ── 3. VIEW PRODUCT DETAIL ──────────────────────────────────────────────
-  await productCards.first().click();
-  await page.waitForLoadState('networkidle');
-  await page.waitForTimeout(500);
-  console.log(`✅ Step 3: Product detail page loaded – URL: ${page.url()}`);
+    // ── 2. BROWSE PRODUCTS ──────────────────────────────────────────────────
+    await page.goto('/products');
+    await page.waitForLoadState('networkidle');
+    const cards = page.locator('a[href^="/products/"]');
+    await expect(cards.first()).toBeVisible({ timeout: 10000 });
+    console.log('OK 2. Products page -', await cards.count(), 'products');
 
-  // ── 4. ADD TO BAG ──────────────────────────────────────────────────────
-  // Select a size first if sizes exist
-  const sizeButtons = page.locator('button:has-text("S"), button:has-text("M"), button:has-text("L"), button:has-text("32"), button:has-text("34")');
-  if (await sizeButtons.count() > 0) {
-    await sizeButtons.first().click();
-    console.log('✅ Size selected');
-  }
+    // ── 3. PRODUCT DETAIL ───────────────────────────────────────────────────
+    await cards.first().click();
+    await page.waitForLoadState('networkidle');
+    console.log('OK 3. Product detail -', page.url());
 
-  // Ensure button is present
-  const addBtn = page.locator('button').filter({ hasText: /add to bag|add to cart/i }).first();
-  await addBtn.waitFor({ state: 'visible', timeout: 15000 }).catch(() => null);
+    // ── 4. SELECT VARIANT (if dropdown exists) ──────────────────────────────
+    const variantTrigger = page.locator('button').filter({ hasText: /choose a variant/i });
+    const hasDropdown = await variantTrigger.isVisible({ timeout: 3000 }).catch(() => false);
 
-  if (await addBtn.isVisible()) {
-    // Listen for the cart item add API call
-    const addRespPromise = page.waitForResponse(
-      resp => (resp.url().includes('/api/v1/carts/items/') || resp.url().includes('/api/v1/cart/items/')) && resp.request().method() === 'POST',
+    if (hasDropdown) {
+      await variantTrigger.click();
+      const firstOption = page.locator('div[class*="absolute"] button').first();
+      await firstOption.waitFor({ state: 'visible', timeout: 5000 });
+      const variantName = await firstOption.textContent();
+      await firstOption.click();
+      console.log('OK 4. Variant selected -', variantName?.trim());
+    } else {
+      // One Size product - first variant is auto-used
+      console.log('OK 4. One Size product - no dropdown needed');
+    }
+
+    // ── 5. ADD TO BAG ───────────────────────────────────────────────────────
+    const addBtn = page.getByRole('button', { name: /add to bag/i });
+    await expect(addBtn).toBeVisible({ timeout: 5000 });
+
+    // listener BEFORE click
+    const cartRespPromise = page.waitForResponse(
+      r => r.url().includes('/cart/items/') && r.request().method() === 'POST',
       { timeout: 15000 }
+    );
+    await addBtn.click();
+    const cr = await cartRespPromise;
+    const crBody = await cr.json().catch(() => ({}));
+    console.log('OK 5. Add to Bag - status:', cr.status(), 'items:', crBody.itemCount ?? crBody.items?.length);
+    expect(cr.status(), 'Add to cart should succeed').toBeLessThan(400);
+
+    // ── 6. CART PAGE ────────────────────────────────────────────────────────
+    await page.waitForURL('/cart', { timeout: 10000 });
+    await page.waitForLoadState('networkidle');
+    await expect(page.getByRole('heading', { name: /your bag/i })).toBeVisible();
+    console.log('OK 6. Cart page loaded');
+
+    // ── 7. PROCEED TO CHECKOUT ──────────────────────────────────────────────
+    await page.getByRole('button', { name: /proceed to checkout/i }).click();
+    await page.waitForURL('/checkout/shipping', { timeout: 10000 });
+    await page.waitForLoadState('networkidle');
+    console.log('OK 7. Checkout shipping page');
+
+    // ── 8. FILL SHIPPING FORM ───────────────────────────────────────────────
+    const fill = async (label, value) => {
+      const el = page.locator(`label:has-text("${label}")`).locator('..').locator('input').first();
+      if (await el.isVisible({ timeout: 2000 }).catch(() => false)) await el.fill(value);
+    };
+
+    await fill('First Name', 'Vipin');
+    await fill('Last Name', 'Pandey');
+    await fill('Street Address', '123 Main Street');
+    await fill('City', 'New York');
+    await fill('State', 'NY');
+    await fill('Postal Code', '10001');
+    await fill('Phone', '+11234567890');
+
+    const countrySelect = page.locator('select').first();
+    if (await countrySelect.isVisible({ timeout: 2000 }).catch(() => false)) {
+      await countrySelect.selectOption({ label: 'United States' });
+    }
+    console.log('OK 8. Shipping form filled');
+
+    // ── 9. CONTINUE TO PAYMENT ──────────────────────────────────────────────
+    await page.getByRole('button', { name: /continue to payment/i }).click();
+    await page.waitForURL('/checkout/payment', { timeout: 10000 });
+    await page.waitForLoadState('networkidle');
+    console.log('OK 9. Payment page');
+
+    // ── 10. CLICK PAY ───────────────────────────────────────────────────────
+    const payBtn = page.locator('button:has-text("Pay")');
+    await expect(payBtn).toBeVisible({ timeout: 5000 });
+
+    // listeners BEFORE click
+    const orderRespPromise = page.waitForResponse(
+      r => r.url().includes('/orders/create/') && r.request().method() === 'POST',
+      { timeout: 20000 }
     ).catch(() => null);
 
-    console.log('   Clicking Add to Bag button...');
-    await addBtn.click();
-    const addResp = await addRespPromise;
-    if (addResp) {
-      console.log(`   ✅ Step 4: Add to Bag response received: ${addResp.status()}`);
-      if (addResp.status() >= 400) {
-        console.log(`   ⚠️  Add to Bag detail: ${await addResp.text()}`);
-      } else {
-        // Wait for cart redirect or state update
-        await page.waitForTimeout(1000);
-      }
+    // Intercept Stripe session response before page navigates away
+    let stripeBodyCapture = null;
+    let stripeStatusCapture = null;
+    await page.route('**/payments/create-session/**', async (route) => {
+      const response = await route.fetch();
+      const body = await response.json().catch(() => ({}));
+      stripeBodyCapture = body;
+      stripeStatusCapture = response.status();
+      await route.fulfill({ response });
+    });
+
+    await payBtn.click();
+    console.log('   Clicked Pay - waiting for API calls...');
+
+    const orderResp = await orderRespPromise;
+    if (orderResp) {
+      const orderBody = await orderResp.json().catch(() => ({}));
+      console.log('OK 10a. Order created - status:', orderResp.status(), 'order_number:', orderBody.order_number || orderBody.orderNumber);
+      expect(orderResp.status(), 'Order creation should succeed').toBeLessThan(400);
     } else {
-      console.log('   ⚠️  Step 4: TIMED OUT waiting for Add to Bag API');
+      const errText = await page.locator('.text-red-500').first().textContent().catch(() => '');
+      console.log('WARN 10a. Order API not captured. Page error:', errText);
     }
-  } else {
-    console.log('⚠️  Step 4: NO "Add to Bag" button visible on page');
-  }
 
-  // ── 5. GO TO CART ──────────────────────────────────────────────────────
-  await page.goto('/cart');
-  await page.waitForLoadState('networkidle');
-  await page.waitForTimeout(500);
+    // Wait for the route intercept to fire
+    await page.waitForTimeout(5000);
 
-  const bagHeading = page.getByRole('heading', { name: /your bag/i });
-  await expect(bagHeading).toBeVisible();
-  console.log('✅ Step 5: Cart page loaded');
-
-  // ── 6. PROCEED TO CHECKOUT SHIPPING ─────────────────────────────────────
-  // Look for any checkout link/button
-  const checkoutLink = page.getByRole('link', { name: /checkout/i }).first();
-  if (await checkoutLink.isVisible()) {
-    await checkoutLink.click();
-  } else {
-    await page.goto('/checkout/shipping');
-  }
-  await page.waitForLoadState('networkidle');
-  await page.waitForTimeout(500);
-  console.log(`✅ Step 6: Checkout shipping page – URL: ${page.url()}`);
-
-  // ── 7. FILL SHIPPING FORM ──────────────────────────────────────────────
-  // The fields use label text like "First Name", "Last Name", etc.
-  const setField = async (label, value) => {
-    const field = page.locator(`label:has-text("${label}") + input, label:has-text("${label}") ~ input`).first();
-    if (await field.isVisible()) {
-      await field.fill(value);
+    if (stripeBodyCapture !== null) {
+      const checkoutUrl = stripeBodyCapture.checkout_url ?? stripeBodyCapture.checkoutUrl ?? stripeBodyCapture.url;
+      console.log('OK 10b. Stripe session - status:', stripeStatusCapture, 'body:', JSON.stringify(stripeBodyCapture).substring(0, 150));
+      expect(stripeStatusCapture, 'Stripe session should succeed').toBeLessThan(400);
+      expect(checkoutUrl, 'Should have checkout URL').toBeTruthy();
     } else {
-      // Try by placeholder or input near the label
-      const altField = page.locator(`input`).filter({ hasText: '' });
-      // Fall back to filling by the label's parent container
-      const container = page.locator(`div:has(> label:has-text("${label}")) input`).first();
-      if (await container.isVisible()) {
-        await container.fill(value);
-      }
+      console.log('WARN 10b. Stripe session API not captured');
     }
-  };
 
-  // Fill the email field
-  const emailInput = page.locator('input[type="email"]').first();
-  if (await emailInput.isVisible()) {
-    const emailVal = await emailInput.inputValue();
-    if (!emailVal || !emailVal.includes('@')) {
-      await emailInput.fill('vipinpandey1804@gmail.com');
-    }
-  }
+    // ── 11. STRIPE CHECKOUT PAGE ────────────────────────────────────────────
+    await page.waitForURL(/checkout\.stripe\.com/, { timeout: 20000 });
+    await page.waitForLoadState('networkidle', { timeout: 30000 });
+    await page.waitForTimeout(3000); // let Stripe JS fully render
+    console.log('OK 11. Redirected to Stripe -', page.url().substring(0, 80));
 
-  // Fill address fields using the input-box class pattern used in checkout
-  const inputBoxes = page.locator('.input-box');
-  const inputCount = await inputBoxes.count();
-  console.log(`   Found ${inputCount} input fields on shipping page`);
+    // ── 12. FILL STRIPE TEST CARD ───────────────────────────────────────────
+    // Card fields are in the main page DOM (no iframe needed)
+    await page.locator('#cardNumber').waitFor({ state: 'visible', timeout: 20000 });
+    await page.locator('#cardNumber').fill('4242424242424242');
+    await page.locator('#cardExpiry').fill('12 / 26');
+    await page.locator('#cardCvc').fill('123');
+    await page.locator('#billingName').fill('Vipin Pandey');
+    console.log('OK 12. Test card filled (4242 4242 4242 4242)');
 
-  // Fill by finding labels and their following inputs
-  const fields = [
-    { label: 'First Name', value: 'Vipin' },
-    { label: 'Last Name', value: 'Pandey' },
-    { label: 'Street Address', value: '123 Main Street' },
-    { label: 'City', value: 'New York' },
-    { label: 'State', value: 'NY' },
-    { label: 'Postal Code', value: '10001' },
-    { label: 'Phone', value: '1234567890' },
-  ];
+    // ── 13. SUBMIT STRIPE PAYMENT ───────────────────────────────────────────
+    await page.getByRole('button', { name: /pay|subscribe|confirm/i }).click();
+    console.log('OK 13. Stripe Pay button clicked');
 
-  for (const { label, value } of fields) {
-    const labelEl = page.locator(`label:text-is("${label}"), label:has-text("${label}")`).first();
-    if (await labelEl.isVisible()) {
-      const parent = labelEl.locator('..');
-      const input = parent.locator('input, select').first();
-      if (await input.isVisible()) {
-        const currentVal = await input.inputValue();
-        if (!currentVal || !currentVal.trim()) {
-          await input.fill(value);
-        }
-      }
-    }
-  }
-  console.log('✅ Step 7: Shipping fields filled');
+    // ── 14. ORDER CONFIRMATION ──────────────────────────────────────────────
+    await page.waitForURL(/order-confirmation|order\/confirmation|success/, { timeout: 60000 });
+    await page.waitForLoadState('networkidle');
+    console.log('OK 14. Order confirmation -', page.url());
 
-  // ── 8. CONTINUE TO PAYMENT ──────────────────────────────────────────────
-  const continueBtn = page.getByRole('button', { name: /continue to payment/i });
-  await continueBtn.click();
-  await page.waitForLoadState('networkidle');
-  await page.waitForTimeout(1000);
-
-  // Should be on payment page now
-  const currentUrl = page.url();
-  console.log(`✅ Step 8: After "Continue to Payment" – URL: ${currentUrl}`);
-
-  if (currentUrl.includes('/checkout/payment')) {
-    console.log('   ✅ Successfully navigated to Payment page');
-
-    // ── 9. CLICK PAY ──────────────────────────────────────────────────────
-    const payBtn = page.locator('button:has-text("Pay")').first();
-    if (await payBtn.isVisible()) {
-      // Listen for the order creation API call
-      const responsePromise = page.waitForResponse(
-        resp => resp.url().includes('/api/v1/orders/') && resp.request().method() === 'POST',
-        { timeout: 15000 }
-      ).catch(() => null);
-
-      await payBtn.click();
-      console.log('   Clicked Pay button, waiting for API response...');
-
-      const resp = await responsePromise;
-      if (resp) {
-        const status = resp.status();
-        const body = await resp.text();
-        console.log(`   Order API Status: ${status}`);
-        console.log(`   Order API Response (first 500 chars): ${body.substring(0, 500)}`);
-
-        if (status === 200 || status === 201) {
-          console.log('✅ Step 9: Order created successfully!');
-        } else {
-          console.log(`⚠️  Step 9: Order creation returned status ${status}`);
-        }
-      } else {
-        // Check if an address creation request was made instead
-        await page.waitForTimeout(3000);
-        const errorText = await page.locator('.text-red-500').first().textContent().catch(() => '');
-        console.log(`⚠️  Step 9: No order response captured. Error on page: "${errorText}"`);
-      }
-    } else {
-      console.log('⚠️  Step 9: Pay button not found');
-    }
-  } else {
-    // Might still be on shipping (validation errors)
-    const errorEls = page.locator('.text-red-500');
-    const errorCount = await errorEls.count();
-    if (errorCount > 0) {
-      const firstError = await errorEls.first().textContent();
-      console.log(`⚠️  Step 8: Validation errors found – first: "${firstError}"`);
-    } else {
-      console.log(`⚠️  Step 8: Did not navigate to payment. Current URL: ${currentUrl}`);
-    }
-  }
-
-  // Final screenshot / wait
-  await page.waitForTimeout(2000);
-  console.log('✅ Full flow test complete');
+    console.log('\nFull flow test complete!');
+  });
 });

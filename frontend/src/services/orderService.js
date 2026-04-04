@@ -31,7 +31,7 @@ export const orderService = {
    * Returns { checkoutUrl, sessionId }.
    */
   async createCheckoutSession(orderNumber) {
-    const { data } = await api.post('/payments/create-session/', { orderNumber });
+    const { data } = await api.post('/payments/create-session/', { order_number: orderNumber });
     return data;
   },
 

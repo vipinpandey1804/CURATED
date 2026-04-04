@@ -45,7 +45,9 @@ export default function ProductDetailPage() {
   }, []);
 
   const variants = product?.variants || [];
-  const activeVariant = variants.find((v) => v.id === selectedVariantId) || null;
+  const activeVariant = variants.find((v) => v.id === selectedVariantId)
+    || (variants.length === 1 ? variants[0] : null)
+    || (variants.every(v => v.size === 'One Size') ? variants[0] : null);
   const displayPrice = activeVariant ? activeVariant.effectivePrice : product?.price;
 
   if (loading) {

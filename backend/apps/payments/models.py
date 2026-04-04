@@ -11,7 +11,7 @@ class StripeSession(TimestampedModel):
     stripe_session_id = models.CharField(max_length=255, unique=True, db_index=True)
     stripe_payment_intent_id = models.CharField(max_length=255, blank=True)
     status = models.CharField(max_length=50, default="created")
-    checkout_url = models.URLField(blank=True)
+    checkout_url = models.TextField(blank=True)
 
     class Meta:
         db_table = "payments_stripe_session"
