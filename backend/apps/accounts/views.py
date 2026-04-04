@@ -1,6 +1,8 @@
+import hashlib
 import logging
 import random
 import string
+import uuid
 
 from django.conf import settings
 from django.contrib.auth import authenticate, get_user_model
@@ -10,6 +12,7 @@ from datetime import timedelta
 
 from rest_framework import generics, permissions, status, viewsets
 from rest_framework.decorators import action
+from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -27,6 +30,9 @@ from .serializers import (
 
 User = get_user_model()
 logger = logging.getLogger(__name__)
+
+# In-memory store for dev (use DB/cache in prod)
+_reset_tokens = {}
 
 
 def _send_otp(email, phone, code):
@@ -177,6 +183,8 @@ class AddressViewSet(viewsets.ModelViewSet):
         return Address.objects.filter(user=self.request.user)
 
     def perform_create(self, serializer):
+        if Address.objects.filter(user=self.request.user).count() >= 5:
+            raise ValidationError("Maximum 5 addresses allowed.")
         address = serializer.save(user=self.request.user)
         if address.is_default:
             Address.objects.filter(
@@ -276,3 +284,53 @@ class OTPVerifyView(APIView):
 
 
 
+
+class PasswordResetRequestView(APIView):
+    """POST /api/v1/auth/password/reset/"""
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        email = (request.data.get("email") or "").lower().strip()
+        if not email:
+            return Response({"detail": "Email is required."}, status=status.HTTP_400_BAD_REQUEST)
+        user = User.objects.filter(email=email).first()
+        if user:
+            token = str(uuid.uuid4())
+            _reset_tokens[token] = {
+                "user_id": str(user.id),
+                "expires_at": timezone.now() + timedelta(hours=1),
+            }
+            reset_url = f"http://localhost:5173/reset-password?token={token}"
+            try:
+                send_mail(
+                    subject="Reset your CURATED password",
+                    message=f"Click the link to reset your password:\n\n{reset_url}\n\nThis link expires in 1 hour.",
+                    from_email=settings.DEFAULT_FROM_EMAIL,
+                    recipient_list=[email],
+                    fail_silently=False,
+                )
+            except Exception as exc:
+                logger.warning("Password reset email failed: %s", exc)
+        return Response({"detail": "If that email exists, a reset link has been sent."})
+
+
+class PasswordResetConfirmView(APIView):
+    """POST /api/v1/auth/password/reset/confirm/"""
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        token = request.data.get("token", "")
+        password = request.data.get("password", "")
+        if not token or not password:
+            return Response({"detail": "Token and password are required."}, status=status.HTTP_400_BAD_REQUEST)
+        entry = _reset_tokens.get(token)
+        if not entry or timezone.now() > entry["expires_at"]:
+            _reset_tokens.pop(token, None)
+            return Response({"detail": "Invalid or expired reset token."}, status=status.HTTP_400_BAD_REQUEST)
+        user = User.objects.filter(id=entry["user_id"]).first()
+        if not user:
+            return Response({"detail": "User not found."}, status=status.HTTP_400_BAD_REQUEST)
+        user.set_password(password)
+        user.save()
+        _reset_tokens.pop(token, None)
+        return Response({"detail": "Password reset successful."})

@@ -6,9 +6,35 @@ import { orderService } from '../services/orderService';
 const STATUS_STYLES = {
   delivered: 'bg-green-50 text-green-700 border border-green-200',
   processing: 'bg-amber-50 text-amber-700 border border-amber-200',
+  confirmed: 'bg-amber-50 text-amber-700 border border-amber-200',
   shipped: 'bg-blue-50 text-blue-700 border border-blue-200',
   cancelled: 'bg-red-50 text-red-700 border border-red-200',
 };
+
+function AccountNav({ active }) {
+  return (
+    <nav className="w-44 flex-shrink-0 pt-1">
+      <ul className="flex flex-col gap-0.5">
+        {[
+          { label: 'Profile', href: '/account/profile' },
+          { label: 'Addresses', href: '/account/addresses' },
+          { label: 'Orders', href: '/orders' },
+          { label: 'Settings', href: '/account/settings' },
+        ].map((n) => (
+          <li key={n.label}>
+            <Link to={n.href} className={`block py-2 pl-3 border-l-2 text-xs transition-colors ${
+              n.label === active
+                ? 'border-brand-dark text-brand-dark font-semibold'
+                : 'border-transparent text-brand-muted hover:text-brand-dark hover:border-brand-border'
+            }`}>
+              {n.label}
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </nav>
+  );
+}
 
 export default function OrderHistoryPage() {
   const { data, loading } = useApi(
@@ -27,10 +53,21 @@ export default function OrderHistoryPage() {
 
   if (!loading && orders.length === 0) {
     return (
-      <main className="pt-[96px] min-h-screen flex flex-col items-center justify-center gap-6 px-6">
-        <p className="font-serif text-3xl font-light text-brand-dark">No orders yet</p>
-        <p className="text-sm text-brand-muted">Your past orders will appear here.</p>
-        <Link to="/products" className="btn-primary">Shop Now</Link>
+      <main className="pt-[96px] min-h-screen">
+        <div className="max-w-3xl mx-auto px-6 lg:px-12 py-12 border-b border-brand-border">
+          <p className="section-label mb-2">Account</p>
+          <h1 className="font-serif text-5xl font-light text-brand-dark">Order History</h1>
+        </div>
+        <div className="max-w-5xl mx-auto px-6 lg:px-12 py-10">
+          <div className="flex gap-12">
+            <AccountNav active="Orders" />
+            <div className="flex-1 min-w-0 flex flex-col items-center justify-center gap-6 py-20">
+              <p className="font-serif text-3xl font-light text-brand-dark">No orders yet</p>
+              <p className="text-sm text-brand-muted">Your past orders will appear here.</p>
+              <Link to="/products" className="btn-primary">Shop Now</Link>
+            </div>
+          </div>
+        </div>
       </main>
     );
   }
@@ -38,28 +75,17 @@ export default function OrderHistoryPage() {
   return (
     <main className="pt-[96px] min-h-screen">
       {/* Header */}
-      <div className="max-w-5xl mx-auto px-6 lg:px-12 py-12 border-b border-brand-border">
+      <div className="max-w-3xl mx-auto px-6 lg:px-12 py-12 border-b border-brand-border">
         <p className="section-label mb-2">Account</p>
         <h1 className="font-serif text-5xl font-light text-brand-dark">Order History</h1>
       </div>
 
       <div className="max-w-5xl mx-auto px-6 lg:px-12 py-10">
-        {/* Account sub-nav */}
-        <nav className="flex gap-6 border-b border-brand-border mb-8 text-xs">
-          {[
-            { label: 'Orders', href: '/orders', active: true },
-            { label: 'Addresses', href: '/account/addresses', active: false },
-            { label: 'Profile', href: '/account/profile', active: false },
-            { label: 'Settings', href: '/account/settings', active: false },
-          ].map((n) => (
-            <Link key={n.label} to={n.href} className={`pb-3 border-b-2 transition-colors ${n.active ? 'border-brand-dark text-brand-dark font-medium' : 'border-transparent text-brand-muted hover:text-brand-dark'}`}>
-              {n.label}
-            </Link>
-          ))}
-        </nav>
-
-        <div className="space-y-5">
-          {orders.map((order) => {
+        <div className="flex gap-12">
+          <AccountNav active="Orders" />
+          <div className="flex-1 min-w-0">
+            <div className="space-y-5">
+              {orders.map((order) => {
             const status = (order.status || 'processing').toLowerCase();
             const placedDate = order.createdAt
               ? new Date(order.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
@@ -122,6 +148,8 @@ export default function OrderHistoryPage() {
               </div>
             );
           })}
+            </div>
+          </div>
         </div>
       </div>
     </main>

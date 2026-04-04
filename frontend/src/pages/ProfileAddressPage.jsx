@@ -26,7 +26,7 @@ function AccountNav({ active }) {
   );
 }
 
-const BLANK = { firstName: '', lastName: '', address: '', city: '', state: '', zip: '', country: 'United States', phone: '' };
+const BLANK = { firstName: '', lastName: '', address: '', city: '', state: '', zip: '', country: 'IN', phone: '' };
 
 function AddressModal({ title, initial, onSave, onClose }) {
   const [form, setForm] = useState(initial || BLANK);
@@ -34,7 +34,7 @@ function AddressModal({ title, initial, onSave, onClose }) {
 
   function validate() {
     const errs = {};
-    ['firstName', 'lastName', 'address', 'city', 'state', 'zip'].forEach((f) => { if (!form[f].trim()) errs[f] = 'Required'; });
+    ['firstName', 'lastName', 'address', 'city', 'state', 'zip', 'country'].forEach((f) => { if (!form[f].trim()) errs[f] = 'Required'; });
     return errs;
   }
 
@@ -59,11 +59,13 @@ function AddressModal({ title, initial, onSave, onClose }) {
               { name: 'city', label: 'City' },
               { name: 'state', label: 'State' },
               { name: 'zip', label: 'Postal Code' },
+              { name: 'country', label: 'Country (2-letter)' },
               { name: 'phone', label: 'Phone (optional)', full: true },
             ].map(({ name, label, full }) => (
               <div key={name} className={full ? 'col-span-full' : ''}>
-                <label className="block text-xs text-brand-muted mb-1">{label}</label>
+                <label htmlFor={`addr-${name}`} className="block text-xs text-brand-muted mb-1">{label}</label>
                 <input
+                  id={`addr-${name}`}
                   type="text"
                   value={form[name]}
                   onChange={(e) => { setForm({ ...form, [name]: e.target.value }); if (errors[name]) setErrors({ ...errors, [name]: undefined }); }}
@@ -107,6 +109,7 @@ export default function ProfileAddressPage() {
   const [addresses, setAddresses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState(null);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     authService.getAddresses()
@@ -117,25 +120,32 @@ export default function ProfileAddressPage() {
 
   async function handleAdd(form) {
     const payload = {
-      firstName: form.firstName,
-      lastName: form.lastName,
-      line1: form.address,
+      fullName: `${form.firstName} ${form.lastName}`.trim(),
+      addressLine1: form.address,
+      addressLine2: '',
       city: form.city,
       state: form.state,
       postalCode: form.zip,
       country: form.country,
       phone: form.phone,
+      addressType: 'SHIPPING',
     };
-    const created = await authService.createAddress(payload);
-    setAddresses((prev) => [...prev, created]);
-    setModal(null);
+    try {
+      setError(null);
+      const created = await authService.createAddress(payload);
+      setAddresses((prev) => [...prev, created]);
+      setModal(null);
+    } catch (err) {
+      const msg = err?.response?.data?.detail || err?.response?.data?.[0] || 'Failed to save address.';
+      setError(msg);
+    }
   }
 
   async function handleEdit(form) {
     const payload = {
-      firstName: form.firstName,
-      lastName: form.lastName,
-      line1: form.address,
+      fullName: `${form.firstName} ${form.lastName}`.trim(),
+      addressLine1: form.address,
+      addressLine2: '',
       city: form.city,
       state: form.state,
       postalCode: form.zip,
@@ -153,16 +163,25 @@ export default function ProfileAddressPage() {
     setModal(null);
   }
 
+  async function handleSetDefault(addr) {
+    const updated = await authService.updateAddress(addr.id, { isDefault: true });
+    setAddresses((prev) => prev.map((a) => ({
+      ...a,
+      isDefault: a.id === addr.id,
+    })));
+  }
+
   // Normalise address field names (API returns line1/postalCode, modal uses address/zip)
   function toFormShape(addr) {
+    const nameParts = (addr.fullName || '').split(' ');
     return {
-      firstName: addr.firstName || '',
-      lastName: addr.lastName || '',
-      address: addr.line1 || addr.address || '',
+      firstName: nameParts[0] || '',
+      lastName: nameParts.slice(1).join(' ') || '',
+      address: addr.addressLine1 || '',
       city: addr.city || '',
-      state: addr.state || addr.stateCode || '',
-      zip: addr.postalCode || addr.zip || '',
-      country: addr.country || 'United States',
+      state: addr.state || '',
+      zip: addr.postalCode || '',
+      country: addr.country || 'IN',
       phone: addr.phone || '',
     };
   }
@@ -183,10 +202,13 @@ export default function ProfileAddressPage() {
 
         <div className="flex items-center justify-between mb-6">
           <p className="text-sm text-brand-muted">{addresses.length} saved address{addresses.length !== 1 ? 'es' : ''}</p>
-          <button onClick={() => setModal('add')} className="btn-primary flex items-center gap-2 text-xs py-2">
-            <Plus size={13} /> Add Address
-          </button>
+          {addresses.length < 5 && (
+            <button onClick={() => { setError(null); setModal('add'); }} className="btn-primary flex items-center gap-2 text-xs py-2">
+              <Plus size={13} /> Add Address
+            </button>
+          )}
         </div>
+        {error && <p className="text-sm text-red-500 mb-4">{error}</p>}
 
         {addresses.length === 0 && (
           <div className="text-center py-16 border border-dashed border-brand-border">
@@ -196,15 +218,14 @@ export default function ProfileAddressPage() {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
           {addresses.map((addr) => {
-            const line1 = addr.line1 || addr.address || '';
-            const zip = addr.postalCode || addr.zip || '';
+            const zip = addr.postalCode || '';
             return (
-              <div key={addr.id} className={`border p-5 relative ${addr.isDefault ? 'border-brand-dark' : 'border-brand-border'}`}>
+              <div key={addr.id} className={`address-card border p-5 relative ${addr.isDefault ? 'border-brand-dark' : 'border-brand-border'}`}>
                 {addr.isDefault && (
                   <span className="absolute top-3 right-3 text-[10px] bg-brand-dark text-white px-2 py-0.5 tracking-widest uppercase">Default</span>
                 )}
-                <p className="text-sm font-medium text-brand-dark mb-1">{addr.firstName} {addr.lastName}</p>
-                <p className="text-xs text-brand-muted">{line1}</p>
+                <p className="text-sm font-medium text-brand-dark mb-1">{addr.fullName}</p>
+                <p className="text-xs text-brand-muted">{addr.addressLine1}</p>
                 <p className="text-xs text-brand-muted">{addr.city}, {addr.state} {zip}</p>
                 <p className="text-xs text-brand-muted">{addr.country}</p>
                 {addr.phone && <p className="text-xs text-brand-muted">{addr.phone}</p>}
@@ -213,6 +234,11 @@ export default function ProfileAddressPage() {
                   <button onClick={() => setModal({ type: 'edit', addr })} className="flex items-center gap-1 text-xs text-brand-muted hover:text-brand-dark transition-colors">
                     <Edit2 size={11} /> Edit
                   </button>
+                  {!addr.isDefault && (
+                    <button onClick={() => handleSetDefault(addr)} className="flex items-center gap-1 text-xs text-brand-muted hover:text-brand-dark transition-colors">
+                      <Check size={11} /> Set as Default
+                    </button>
+                  )}
                   <button onClick={() => setModal({ type: 'delete', addr })} className="flex items-center gap-1 text-xs text-brand-muted hover:text-red-500 transition-colors">
                     <Trash2 size={11} /> Remove
                   </button>

@@ -113,15 +113,8 @@ export const authService = {
     return data;
   },
 
-  /**
-   * Reset password with token.
-   */
-  async resetPassword(uidb64, token, password) {
-    const { data } = await api.post('/auth/password/reset/confirm/', {
-      uidb64,
-      token,
-      password,
-    });
+  async resetPassword(token, password) {
+    const { data } = await api.post('/auth/password/reset/confirm/', { token, password });
     return data;
   },
 };

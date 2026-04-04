@@ -43,7 +43,7 @@ export default function CheckoutShippingPage() {
     city: '',
     state: '',
     zip: '',
-    country: 'United States',
+    country: 'US',
     phone: '',
   });
   const [shipping, setShipping] = useState('standard');
@@ -53,27 +53,30 @@ export default function CheckoutShippingPage() {
   useEffect(() => {
     if (user) {
       authService.getAddresses().then((data) => {
-        setAddresses(data.results || data);
-        const def = (data.results || data).find((a) => a.isDefault);
-        if (def) {
-          const nameParts = (def.fullName || '').split(' ');
-          setSelectedAddressId(def.id);
-          setForm((f) => ({
-            ...f,
-            email: user.email || f.email,
-            firstName: nameParts[0] || '',
-            lastName: nameParts.slice(1).join(' ') || '',
-            address: def.addressLine1 || def.line1 || '',
-            city: def.city || '',
-            state: def.state || '',
-            zip: def.postalCode || '',
-            country: def.country || 'United States',
-            phone: def.phone || '',
-          }));
-        }
+        const list = data.results || data;
+        setAddresses(list);
+        const def = list.find((a) => a.isDefault) || list[0];
+        if (def) fillFromAddress(def);
       }).catch(() => {});
     }
   }, [user]);
+
+  function fillFromAddress(addr) {
+    const nameParts = (addr.fullName || '').split(' ');
+    setSelectedAddressId(addr.id);
+    setForm((f) => ({
+      ...f,
+      email: user?.email || f.email,
+      firstName: nameParts[0] || '',
+      lastName: nameParts.slice(1).join(' ') || '',
+      address: addr.addressLine1 || '',
+      city: addr.city || '',
+      state: addr.state || '',
+      zip: addr.postalCode || '',
+      country: addr.country || 'United States',
+      phone: addr.phone || '',
+    }));
+  }
 
   const cartSubtotal = serverCart
     ? parseFloat(serverCart.subtotal?.amount || serverCart.subtotal || 0)
@@ -108,12 +111,12 @@ export default function CheckoutShippingPage() {
             onChange={(e) => setForm({ ...form, [name]: e.target.value })}
             className="input-box w-full"
           >
-            <option>United States</option>
-            <option>Canada</option>
-            <option>Sweden</option>
-            <option>Norway</option>
-            <option>United Kingdom</option>
-            <option>India</option>
+            <option value="US">United States</option>
+            <option value="CA">Canada</option>
+            <option value="SE">Sweden</option>
+            <option value="NO">Norway</option>
+            <option value="GB">United Kingdom</option>
+            <option value="IN">India</option>
           </select>
         ) : (
           <input
@@ -147,6 +150,36 @@ export default function CheckoutShippingPage() {
                 {field('phone', 'Phone (optional)', { type: 'tel', full: true })}
               </div>
             </section>
+
+            {/* Saved Addresses */}
+            {addresses.length > 0 && (
+              <section className="mb-8">
+                <p className="section-label mb-4">Saved Addresses</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {addresses.map((addr) => (
+                    <button
+                      key={addr.id}
+                      type="button"
+                      onClick={() => fillFromAddress(addr)}
+                      className={`text-left p-4 border transition-colors ${
+                        selectedAddressId === addr.id
+                          ? 'border-brand-dark bg-brand-dark/5'
+                          : 'border-brand-border hover:border-brand-muted'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <p className="text-xs font-medium text-brand-dark">{addr.fullName}</p>
+                        {addr.isDefault && (
+                          <span className="text-[10px] bg-brand-dark text-white px-2 py-0.5 tracking-widest uppercase">Default</span>
+                        )}
+                      </div>
+                      <p className="text-xs text-brand-muted">{addr.addressLine1}</p>
+                      <p className="text-xs text-brand-muted">{addr.city}, {addr.state} {addr.postalCode}</p>
+                    </button>
+                  ))}
+                </div>
+              </section>
+            )}
 
             {/* Address */}
             <section className="mb-8">
@@ -204,8 +237,8 @@ export default function CheckoutShippingPage() {
             </h2>
             <div className="space-y-3 mb-4">
               {(serverCart ? serverCart.items : items).map((item, idx) => {
-                const name = serverCart ? (item.variant?.product?.name || item.productName || '') : item.name;
-                const image = serverCart ? (item.variant?.product?.primaryImage || '') : item.image;
+                const name = serverCart ? (item.productName || '') : item.name;
+                const image = serverCart ? (item.primaryImage || '') : item.image;
                 const detail = serverCart
                   ? `${item.variant?.colorName || ''} · ×${item.quantity}`
                   : `${item.variant} · ${item.size} · ×${item.qty}`;

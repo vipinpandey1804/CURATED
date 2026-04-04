@@ -51,18 +51,13 @@ export default function CheckoutPaymentPage() {
     try {
       // 1. Ensure address is created in backend
       const shippingData = shipping.form || {};
-      // Map country display names to ISO 3166-1 alpha-2
-      const COUNTRY_MAP = {
-        'United States': 'US', 'Canada': 'CA', 'Sweden': 'SE',
-        'Norway': 'NO', 'United Kingdom': 'GB', 'India': 'IN',
-      };
       const addrPayload = {
         fullName: `${shippingData.firstName || ''} ${shippingData.lastName || ''}`.trim(),
         addressLine1: shippingData.address,
         city: shippingData.city,
         state: shippingData.state,
         postalCode: shippingData.zip,
-        country: COUNTRY_MAP[shippingData.country] || shippingData.country || 'US',
+        country: shippingData.country || 'US',
         phone: shippingData.phone || '',
       };
       const newAddr = await authService.createAddress(addrPayload);
