@@ -34,8 +34,22 @@ import WriteReviewPage from './pages/WriteReviewPage';
 import AboutUsPage from './pages/AboutUsPage';
 import ContactPage from './pages/ContactPage';
 
+// Admin panel
+import AdminRoute from './components/admin/AdminRoute';
+import AdminLayout from './components/admin/AdminLayout';
+import AdminDashboardPage from './pages/admin/AdminDashboardPage';
+import AdminProductsPage from './pages/admin/AdminProductsPage';
+import AdminProductFormPage from './pages/admin/AdminProductFormPage';
+import AdminCategoriesPage from './pages/admin/AdminCategoriesPage';
+import AdminAttributesPage from './pages/admin/AdminAttributesPage';
+import AdminOrdersPage from './pages/admin/AdminOrdersPage';
+import AdminOrderDetailPage from './pages/admin/AdminOrderDetailPage';
+import AdminReturnsPage from './pages/admin/AdminReturnsPage';
+import AdminCouponsPage from './pages/admin/AdminCouponsPage';
+import AdminUsersPage from './pages/admin/AdminUsersPage';
+
 // Auth routes that use their own full-screen layout (no Navbar/Footer)
-const AUTH_ROUTES = ['/login', '/signup', '/forgot-password', '/reset-password', '/verify-email'];
+const AUTH_ROUTES = ['/login', '/signup', '/forgot-password', '/reset-password', '/verify-email', '/admin-panel'];
 
 /** Redirect unauthenticated users to /login */
 function ProtectedRoute({ children }) {
@@ -104,13 +118,39 @@ function Layout() {
   );
 }
 
+function AdminApp() {
+  return (
+    <Routes>
+      <Route
+        path="/"
+        element={<AdminRoute><AdminLayout /></AdminRoute>}
+      >
+        <Route index element={<AdminDashboardPage />} />
+        <Route path="products" element={<AdminProductsPage />} />
+        <Route path="products/new" element={<AdminProductFormPage />} />
+        <Route path="products/:id" element={<AdminProductFormPage />} />
+        <Route path="categories" element={<AdminCategoriesPage />} />
+        <Route path="attributes" element={<AdminAttributesPage />} />
+        <Route path="orders" element={<AdminOrdersPage />} />
+        <Route path="orders/:id" element={<AdminOrderDetailPage />} />
+        <Route path="returns" element={<AdminReturnsPage />} />
+        <Route path="coupons" element={<AdminCouponsPage />} />
+        <Route path="users" element={<AdminUsersPage />} />
+      </Route>
+    </Routes>
+  );
+}
+
 export default function App() {
   return (
     <AuthProvider>
       <CartProvider>
         <WishlistProvider>
           <BrowserRouter>
-            <Layout />
+            <Routes>
+              <Route path="/admin-panel/*" element={<AdminApp />} />
+              <Route path="*" element={<Layout />} />
+            </Routes>
           </BrowserRouter>
         </WishlistProvider>
       </CartProvider>

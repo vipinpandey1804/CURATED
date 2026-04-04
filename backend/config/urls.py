@@ -10,6 +10,8 @@ from drf_spectacular.views import (
 
 urlpatterns = [
     path("admin/", admin.site.urls),
+    # Admin API namespace (is_staff required)
+    path("api/v1/admin/", include("config.admin_urls")),
     # API v1
     path("api/v1/auth/", include("apps.accounts.urls")),
     path("api/v1/catalog/", include("apps.catalog.urls")),

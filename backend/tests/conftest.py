@@ -50,3 +50,10 @@ def admin_user(db):
         is_staff=True,
         is_superuser=True,
     )
+
+
+@pytest.fixture
+def admin_client(api_client, admin_user):
+    """API client authenticated as an admin (is_staff=True) user."""
+    api_client.force_authenticate(user=admin_user)
+    return api_client

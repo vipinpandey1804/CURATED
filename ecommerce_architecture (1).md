@@ -73,7 +73,8 @@ This document defines the complete, finalized system architecture for a producti
 | Search (v2) | OpenSearch | Scale search | Migrate when needed |
 | Storage (v1) | FileSystemStorage | Media uploads | Mounted persistent volume |
 | Storage (v2) | AWS S3 | Shared object storage | Enable at multi-node |
-| Admin UX | django-unfold | Better ops interface | Replaces default admin |
+| Admin UX | django-unfold | Superadmin Django shell access | Replaces default admin |
+| Admin CMS (frontend) | React 18 + shadcn/ui | Staff-facing CMS at `/admin-panel/` | Radix UI + Tailwind + CVA |
 | Observability | Sentry + OpenTelemetry | Errors + tracing | + CloudWatch |
 | Deployment | AWS ECS Fargate / EKS | Container runtime | Blue/green deploys |
 | Secrets | AWS Secrets Manager | Credentials | Via SSM Parameter Store |
@@ -613,69 +614,92 @@ Sanity owns all editorial and marketing content. Django's `marketing` app is a t
 
 ## 15. Admin Panel Architecture
 
-### 15.1 Technology: django-unfold
+### 15.1 Technology: React Admin CMS + django-unfold
 
-Django Admin is the operational backbone of the platform. Raw Django Admin is unsuitable for non-technical staff — `django-unfold` replaces the UI with a modern Tailwind-based interface while keeping 100% of Django Admin functionality. All configuration stays in Python — no separate frontend to maintain.
+The admin surface is split into two tiers:
 
-| Capability | Detail |
-|---|---|
-| Modern UI | Tailwind-based sidebar navigation, clean card layout, dark/light mode |
-| Dashboard widgets | Order volume, revenue summary, low stock alerts, open return queue count |
-| Custom list actions | Bulk approve returns, bulk mark shipped, bulk deactivate products |
-| Inline editing | Variants + attributes on Product page, shipment items on Order page |
-| Advanced filters | Sidebar filters per model — status, date range, category, stock level |
-| Role-based display | Each staff group sees only their permitted sections and actions |
-| Audit log | All admin actions logged — actor, timestamp, before/after values |
-| Global search | Search across products, orders, users from admin header |
-
-### 15.2 Staff Roles & Permissions
-
-Five role groups configured in Django Admin from day one. Each group has explicit model-level and object-level permissions.
-
-| Role | Apps accessible | Key permissions | Restricted from |
+| Tier | Technology | URL | Purpose |
 |---|---|---|---|
-| **Catalog Manager** | catalog, inventory | Add/edit products, variants, categories, media; adjust stock | Orders, payments, returns, users |
-| **Order Support** | orders, returns, accounts (read) | View orders, process return requests, view customer details | Payments (write), catalog, inventory write |
-| **Fulfillment Staff** | orders (read), fulfillment | Create shipments, add tracking numbers, update fulfillment status | Payments, returns, catalog, user data |
-| **Finance / Ops** | payments, returns, analytics | Approve refunds, view payment transactions, export reports | Catalog, fulfillment, user PII beyond email |
-| **Superadmin** | All apps | Full access — all read/write/delete permissions | Nothing restricted |
+| **Staff CMS** | React 18 + shadcn/ui (Radix UI + Tailwind + CVA) | `/admin-panel/` | Day-to-day catalog/order/user management by staff with `is_staff=true` |
+| **Superadmin shell** | django-unfold | `/admin/` | Django ORM-level access for engineers + data ops |
 
-### 15.3 Admin Views by Phase
+The React CMS uses dedicated DRF endpoints under `/api/v1/admin/` protected by `IsAdminUser`. Auth reuses the existing JWT flow — the `is_staff` flag is exposed on the `/auth/me/` endpoint.
 
-**Phase 1 — Catalog Admin** *(built with `catalog` app)*
+### 15.2 Frontend Admin Panel Structure
 
-- Product list: variant count badge, stock status indicator (In Stock / Low / Out), active toggle
-- Product detail: inline variant editing, attribute value assignment, image ordering
-- Category tree: drag-and-drop ordering (django-unfold supports natively)
-- Inventory movement log: read-only audit trail, filterable by variant and movement type
+```
+src/
+├── components/admin/
+│   ├── AdminRoute.jsx        ← Guards routes by is_staff; redirects non-staff
+│   ├── AdminLayout.jsx       ← Sidebar + topbar + <Outlet />
+│   ├── AdminSidebar.jsx      ← Dark collapsible nav (bg-gray-900)
+│   └── ui/
+│       ├── AdminButton.jsx   ← CVA button variants
+│       ├── AdminBadge.jsx    ← Status badge + statusVariant() helper
+│       ├── AdminDialog.jsx   ← Radix Dialog with overlay/header/footer
+│       ├── AdminSelect.jsx   ← Radix Select
+│       └── AdminSwitch.jsx   ← Radix Switch
+├── pages/admin/
+│   ├── AdminDashboardPage.jsx   ← Stat cards + revenue widgets + recent orders
+│   ├── AdminProductsPage.jsx    ← Products table with search + delete
+│   ├── AdminProductFormPage.jsx ← Create/edit product form with image upload
+│   ├── AdminCategoriesPage.jsx  ← Categories table + dialog CRUD
+│   ├── AdminAttributesPage.jsx  ← Two-panel attribute types + values
+│   ├── AdminOrdersPage.jsx      ← Orders table with status filter
+│   ├── AdminOrderDetailPage.jsx ← Full order detail + status update + history timeline
+│   ├── AdminReturnsPage.jsx     ← Returns queue with approve/reject dialogs
+│   ├── AdminCouponsPage.jsx     ← Coupons CRUD with create/edit dialog
+│   └── AdminUsersPage.jsx       ← Users table with is_staff / is_active toggles
+└── services/
+    ├── adminCatalogService.js   ← Catalog CRUD + image upload
+    ├── adminOrderService.js     ← Orders + returns read/approve/reject
+    ├── adminMarketingService.js ← Coupon CRUD
+    └── adminUserService.js      ← User list/update + stats
+```
 
-**Phase 2 — Order & Fulfillment Admin** *(built with `orders` + `fulfillment`)*
+### 15.3 Admin API Endpoints
 
-- Order list: payment status + fulfillment status columns, customer name, total, date — color-coded status badges
-- Order detail: full timeline view (status history, payments, shipments in chronological order)
-- Shipment creation: inline on Order detail — carrier, tracking number, items in shipment
-- Fulfillment queue: filter orders by UNFULFILLED status, bulk mark as shipped
+All endpoints under `/api/v1/admin/` require `IsAdminUser` (is_staff=True + is_active=True).
 
-**Phase 3 — Returns & Finance Admin** *(built with `returns` + `payments`)*
+| Endpoint | Methods | Description |
+|---|---|---|
+| `catalog/categories/` | GET, POST, PATCH, DELETE | Category CRUD |
+| `catalog/products/` | GET, POST, PATCH, DELETE | Product CRUD |
+| `catalog/products/{id}/images/` | GET, POST, DELETE | Product image upload/ordering |
+| `catalog/products/{id}/variants/` | GET, POST, PATCH, DELETE | Variant CRUD |
+| `catalog/attributes/` | GET, POST, PATCH, DELETE | Attribute types |
+| `catalog/attribute-values/` | GET, POST, PATCH, DELETE | Attribute values |
+| `orders/` | GET | Order list (lightweight) |
+| `orders/{id}/` | GET | Order detail (full with items + history) |
+| `orders/{id}/status/` | PATCH | Status update — creates `OrderStatusHistory` record |
+| `returns/` | GET | Return request list |
+| `returns/{id}/` | GET | Return detail |
+| `returns/{id}/approve/` | PATCH | Approve return — restocks inventory via `InventoryMovement` |
+| `returns/{id}/reject/` | PATCH | Reject return |
+| `marketing/coupons/` | GET, POST, PATCH, DELETE | Coupon CRUD |
+| `users/` | GET, PATCH | User list + toggle is_staff/is_active |
+| `stats/` | GET | Dashboard stats (revenue, order counts, pending returns) |
 
-- Return request queue: pending approvals with item detail, reason, and one-click approve/reject
-- Refund panel: linked to `PaymentTransaction` — all refunds traceable to a `ReturnRequest`
-- Payment transaction log: filterable by type (CHARGE/REFUND), status, date range
+### 15.4 Staff Access Model
 
-**Phase 4 — Dashboard & Ops Hardening**
+| Role | Access mechanism | Admin panel sections |
+|---|---|---|
+| **Staff** | `is_staff=True` on User model | All 10 sections (products, categories, attributes, orders, returns, coupons, users) |
+| **Superadmin** | `is_superuser=True` | Django `/admin/` shell + all staff sections |
+| **Customer** | `is_staff=False` | Redirected to storefront; "Access Denied" on `/admin-panel/` |
 
-- Dashboard: daily orders widget, revenue summary widget, low stock alert widget, open returns count
-- Bulk coupon generation: generate N codes from a `CouponCode` template
-- Analytics export: CSV export of order data, conversion events per date range
-- Admin activity log: global audit trail searchable by staff member and action type
+### 15.5 Admin Security
 
-### 15.4 Admin Security
+- JWT auth reused — no separate session cookie for admin panel
+- Backend validates `is_staff` on every request via DRF `IsAdminUser` permission class
+- `is_staff` promotion requires confirmation dialog on frontend (cannot be toggled by accident)
+- No user deletion endpoint — only `is_active` deactivation
+- All admin API routes return 403 for non-staff tokens
+- django-unfold (`/admin/`) still requires Django session auth + superuser flag
 
-- Session auth with MFA enforced for all admin staff — no JWT in admin panel
-- IP allowlist recommended for `/admin/` route at Nginx / ALB level
-- Object-level permissions: Order Support can view but not edit payment amounts
-- All destructive actions (delete, bulk deactivate) require confirmation dialog
-- All admin actions audit-logged with staff user, timestamp, and changed values
+### 15.6 django-unfold (Superadmin Shell)
+
+`django-unfold` is installed (`requirements/base.txt`) but wired only to `INSTALLED_APPS` for the Django `/admin/` shell — used by engineers and data ops only. It is NOT the primary CMS interface for staff.
 
 ---
 

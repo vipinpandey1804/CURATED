@@ -2,6 +2,13 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ─── shadcn/ui CSS variables (scoped to :root for light, .dark for admin dark UI) ─ */
+@layer base {
+  :root {
+    --radius: 0.5rem;
+  }
+}
+
 @layer base {
   html {
     font-family: 'Inter', system-ui, sans-serif;

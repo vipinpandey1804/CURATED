@@ -29,7 +29,7 @@ e:\ecom-project\backend\venv\Scripts\python.exe e:\ecom-project\backend\manage.p
 Remove-Item Env:DJANGO_SETTINGS_MODULE -ErrorAction SilentlyContinue
 e:\ecom-project\backend\venv\Scripts\pytest.exe tests/ -v
 ```
-**Current result**: 49/49 PASSED
+**Current result**: 110/110 PASSED (61 admin tests + 49 existing; 8 pre-existing failures with Redis offline excluded)
 
 ---
 
@@ -129,13 +129,33 @@ TWILIO_PHONE_NUMBER = os.environ.get("TWILIO_PHONE_NUMBER", "")
 | POST | `/auth/login/` | Login with email+pass or phone+pass → JWT |
 | POST | `/auth/otp/request/` | Request new OTP (rate limited 5/hr) |
 | POST | `/auth/otp/verify/` | Verify OTP → JWT tokens + sets is_verified |
-| GET/PATCH | `/auth/me/` | Authenticated user profile |
+| GET/PATCH | `/auth/me/` | Authenticated user profile (exposes `is_staff`) |
 | POST | `/auth/password/change/` | Change password |
 | GET/POST/PATCH/DELETE | `/auth/addresses/` | Address CRUD |
 | GET | `/catalog/categories/` | Category list |
 | GET | `/catalog/products/` | Product list with filters |
 | GET | `/catalog/products/{slug}/` | Product detail |
 | GET/POST | `/cart/` | Cart operations |
+
+### Admin API Endpoints (`/api/v1/admin/`) — requires `is_staff=True`
+| Method | Path | Description |
+|--------|------|-------------|
+| GET/POST/PATCH/DELETE | `/admin/catalog/categories/` | Category CRUD |
+| GET/POST/PATCH/DELETE | `/admin/catalog/products/` | Product CRUD |
+| GET/POST/DELETE | `/admin/catalog/products/{id}/images/` | Image upload/delete |
+| GET/POST/PATCH/DELETE | `/admin/catalog/products/{id}/variants/` | Variant CRUD |
+| GET/POST/PATCH/DELETE | `/admin/catalog/attributes/` | Attribute types CRUD |
+| GET/POST/PATCH/DELETE | `/admin/catalog/attribute-values/` | Attribute values CRUD |
+| GET | `/admin/orders/` | Orders list |
+| GET | `/admin/orders/{id}/` | Order detail |
+| PATCH | `/admin/orders/{id}/status/` | Update order/payment/fulfillment status |
+| GET | `/admin/returns/` | Return requests list |
+| GET | `/admin/returns/{id}/` | Return detail |
+| PATCH | `/admin/returns/{id}/approve/` | Approve return (restocks inventory) |
+| PATCH | `/admin/returns/{id}/reject/` | Reject return |
+| GET/POST/PATCH/DELETE | `/admin/marketing/coupons/` | Coupon CRUD |
+| GET/PATCH | `/admin/users/` | User list + toggle is_staff/is_active |
+| GET | `/admin/stats/` | Dashboard stats (revenue, orders, returns) |
 
 ---
 
@@ -157,10 +177,29 @@ TWILIO_PHONE_NUMBER = os.environ.get("TWILIO_PHONE_NUMBER", "")
 |------|--------|
 | `apps/accounts/models.py` | Added `phone_number`, `is_verified` to User; updated UserManager |
 | `apps/accounts/backends.py` | Added `PhonePasswordAuthBackend`; fixed OTPAuthBackend phone lookup |
-| `apps/accounts/serializers.py` | RegisterSerializer accepts email OR phone; UserSerializer exposes new fields |
+| `apps/accounts/serializers.py` | RegisterSerializer accepts email OR phone; UserSerializer exposes `is_staff` |
 | `apps/accounts/views.py` | Full rewrite — email/phone registration, OTP send, phone login |
 | `apps/accounts/admin.py` | Added `phone_number`, `is_verified` to list_display and fieldsets |
 | `config/settings/base.py` | Added PhonePasswordAuthBackend + Twilio settings |
 | `.env` | Email SMTP credentials active; Twilio placeholders added |
 | `apps/accounts/migrations/0003_*` | Migration for phone_number + is_verified |
 | `tests/test_accounts.py` | Updated for new register/login API shape; added phone tests |
+| `config/urls.py` | **NEW** Added `/api/v1/admin/` → `config.admin_urls` |
+| `config/admin_urls.py` | **NEW** Central admin URL router (catalog/orders/returns/marketing/users) |
+| `apps/catalog/admin_urls.py` | **NEW** Catalog admin ViewSet routes |
+| `apps/catalog/admin_views.py` | **NEW** AdminCategoryViewSet, AdminProductViewSet, image/variant/attribute ViewSets |
+| `apps/orders/admin_urls.py` | **NEW** Orders admin routes + status update URL |
+| `apps/orders/admin_views.py` | **NEW** AdminOrderViewSet + AdminOrderStatusUpdateView |
+| `apps/returns/admin_urls.py` | **NEW** Returns admin routes + approve/reject URLs |
+| `apps/returns/admin_views.py` | **NEW** AdminReturnRequestViewSet + approve/reject views |
+| `apps/marketing/admin_urls.py` | **NEW** Coupons admin routes |
+| `apps/marketing/admin_views.py` | **NEW** AdminCouponViewSet |
+| `apps/accounts/admin_urls.py` | **NEW** Users admin routes + stats URL |
+| `apps/accounts/admin_views.py` | **NEW** AdminUserViewSet + AdminStatsView |
+
+---
+
+## Session Update � 04-04-2026
+- `/api/v1/admin/stats/` now returns chart-ready 7-day sales trend, user growth trend, and return-status breakdowns.
+- Backend stats tests were extended to cover the richer dashboard payload.
+- Backend verification this session: `backend\\venv\\Scripts\\pytest.exe backend/tests/test_admin.py -q` passed with 62 tests.

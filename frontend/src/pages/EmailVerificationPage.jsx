@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { CheckCircle } from 'lucide-react';
 import Button from '../components/ui/Button';
 import { useAuth } from '../context/AuthContext';
+import { getPostLoginRoute } from '../utils/authRedirect';
 
 export default function EmailVerificationPage() {
   const { completeVerification } = useAuth();
@@ -13,6 +14,7 @@ export default function EmailVerificationPage() {
 
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const [verified, setVerified] = useState(false);
+  const [verifiedUser, setVerifiedUser] = useState(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const refs = useRef([]);
@@ -46,11 +48,12 @@ export default function EmailVerificationPage() {
     if (code.length < 6) { setError('Please enter the complete 6-digit code.'); return; }
     setLoading(true);
     try {
-      await completeVerification({
+      const data = await completeVerification({
         email: type === 'email' ? identifier : undefined,
         phoneNumber: type === 'phone' ? identifier : undefined,
         code,
       });
+      setVerifiedUser(data.user);
       setVerified(true);
     } catch (err) {
       const msg = err?.response?.data?.detail || 'Invalid or expired code. Please try again.';
@@ -61,6 +64,9 @@ export default function EmailVerificationPage() {
   };
 
   if (verified) {
+    const nextRoute = getPostLoginRoute(verifiedUser);
+    const ctaLabel = verifiedUser?.isStaff ? 'Open Admin Dashboard' : 'Start Shopping';
+
     return (
       <div className="min-h-screen flex items-center justify-center bg-brand-bg px-6">
         <div className="w-full max-w-sm text-center">
@@ -74,8 +80,8 @@ export default function EmailVerificationPage() {
           <p className="text-sm text-brand-muted mb-8">
             Your account has been confirmed. Welcome to the collective.
           </p>
-          <Button variant="primary" onClick={() => navigate('/')} className="w-full">
-            Start Shopping
+          <Button variant="primary" onClick={() => navigate(nextRoute)} className="w-full">
+            {ctaLabel}
           </Button>
         </div>
       </div>

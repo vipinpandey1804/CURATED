@@ -1,13 +1,14 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Eye, EyeOff } from 'lucide-react';
 import { GoogleLogin } from '@react-oauth/google';
 import { useAuth } from '../context/AuthContext';
 import Input from '../components/ui/Input';
 import Button from '../components/ui/Button';
+import { getPostLoginRoute } from '../utils/authRedirect';
 
 export default function LoginPage() {
-  const { login, googleLogin } = useAuth();
+  const { login, googleLogin, user, isAuthenticated, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [mode, setMode] = useState('email'); // 'email' | 'phone'
   const [form, setForm] = useState({ email: '', phoneNumber: '', password: '' });
@@ -17,12 +18,18 @@ export default function LoginPage() {
 
   const handleChange = (e) => setForm({ ...form, [e.target.id]: e.target.value });
 
+  useEffect(() => {
+    if (!authLoading && isAuthenticated) {
+      navigate(getPostLoginRoute(user), { replace: true });
+    }
+  }, [authLoading, isAuthenticated, navigate, user]);
+
   const handleGoogleSuccess = async (credentialResponse) => {
     setError('');
     setLoading(true);
     try {
-      await googleLogin(credentialResponse.credential);
-      navigate('/');
+      const data = await googleLogin(credentialResponse.credential);
+      navigate(getPostLoginRoute(data.user), { replace: true });
     } catch {
       setError('Google sign-in failed. Please try again.');
     } finally {
@@ -40,12 +47,12 @@ export default function LoginPage() {
     setError('');
     setLoading(true);
     try {
-      await login({
+      const data = await login({
         email: mode === 'email' ? form.email : undefined,
         phoneNumber: mode === 'phone' ? form.phoneNumber : undefined,
         password: form.password,
       });
-      navigate('/');
+      navigate(getPostLoginRoute(data.user), { replace: true });
     } catch (err) {
       const msg = err?.response?.data?.detail
         || err?.response?.data?.nonFieldErrors?.[0]

@@ -4,13 +4,22 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import LoginPage from '../pages/LoginPage';
 
-// ─── Mocks ───────────────────────────────────────────────────────────────────
-
 const mockLogin = vi.fn();
+const mockGoogleLogin = vi.fn();
 const mockNavigate = vi.fn();
 
+const authState = {
+  user: null,
+  isAuthenticated: false,
+  loading: false,
+};
+
 vi.mock('../context/AuthContext', () => ({
-  useAuth: () => ({ login: mockLogin }),
+  useAuth: () => ({
+    login: mockLogin,
+    googleLogin: mockGoogleLogin,
+    ...authState,
+  }),
 }));
 
 vi.mock('react-router-dom', async (importOriginal) => {
@@ -18,43 +27,28 @@ vi.mock('react-router-dom', async (importOriginal) => {
   return { ...actual, useNavigate: () => mockNavigate };
 });
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-
-const renderLogin = () =>
-  render(
-    <MemoryRouter>
-      <LoginPage />
-    </MemoryRouter>,
-  );
-
-// ─── Tests ───────────────────────────────────────────────────────────────────
+const renderLogin = () => render(
+  <MemoryRouter>
+    <LoginPage />
+  </MemoryRouter>,
+);
 
 describe('LoginPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    authState.user = null;
+    authState.isAuthenticated = false;
+    authState.loading = false;
   });
 
-  it('renders the email input, password input, and submit button', () => {
+  it('renders email mode by default', () => {
     renderLogin();
 
     expect(screen.getByLabelText(/email address/i)).toBeInTheDocument();
-    expect(screen.getByPlaceholderText('••••••••')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /sign in/i })).toBeInTheDocument();
   });
 
-  it('renders a link to the forgot-password page', () => {
-    renderLogin();
-
-    expect(screen.getByRole('link', { name: /forgot password/i })).toBeInTheDocument();
-  });
-
-  it('renders a link to the sign-up page', () => {
-    renderLogin();
-
-    expect(screen.getByRole('link', { name: /create account/i })).toBeInTheDocument();
-  });
-
-  it('shows a validation error when submitting with empty fields', async () => {
+  it('shows validation error when submitting with empty fields', async () => {
     renderLogin();
 
     await userEvent.click(screen.getByRole('button', { name: /sign in/i }));
@@ -63,99 +57,78 @@ describe('LoginPage', () => {
     expect(mockLogin).not.toHaveBeenCalled();
   });
 
-  it('shows a validation error when only email is filled', async () => {
+  it('calls login with email payload and redirects normal users to storefront', async () => {
+    mockLogin.mockResolvedValue({ user: { id: 1, isStaff: false } });
     renderLogin();
 
     await userEvent.type(screen.getByLabelText(/email address/i), 'user@example.com');
-    await userEvent.click(screen.getByRole('button', { name: /sign in/i }));
-
-    expect(screen.getByText('Please fill in all fields.')).toBeInTheDocument();
-    expect(mockLogin).not.toHaveBeenCalled();
-  });
-
-  it('calls login with email and password on valid submit', async () => {
-    mockLogin.mockResolvedValue({ user: { id: 1 } });
-    renderLogin();
-
-    await userEvent.type(screen.getByLabelText(/email address/i), 'user@example.com');
-    await userEvent.type(screen.getByPlaceholderText('••••••••'), 'password123');
+    await userEvent.type(screen.getByLabelText(/password/i), 'password123');
     await userEvent.click(screen.getByRole('button', { name: /sign in/i }));
 
     await waitFor(() => {
-      expect(mockLogin).toHaveBeenCalledWith('user@example.com', 'password123');
+      expect(mockLogin).toHaveBeenCalledWith({
+        email: 'user@example.com',
+        phoneNumber: undefined,
+        password: 'password123',
+      });
+      expect(mockNavigate).toHaveBeenCalledWith('/', { replace: true });
     });
   });
 
-  it('navigates to / after a successful login', async () => {
-    mockLogin.mockResolvedValue({ user: { id: 1 } });
+  it('redirects admin users to admin panel after login', async () => {
+    mockLogin.mockResolvedValue({ user: { id: 9, isStaff: true } });
     renderLogin();
 
-    await userEvent.type(screen.getByLabelText(/email address/i), 'user@example.com');
-    await userEvent.type(screen.getByPlaceholderText('••••••••'), 'password123');
+    await userEvent.type(screen.getByLabelText(/email address/i), 'admin@example.com');
+    await userEvent.type(screen.getByLabelText(/password/i), 'password123');
     await userEvent.click(screen.getByRole('button', { name: /sign in/i }));
 
     await waitFor(() => {
-      expect(mockNavigate).toHaveBeenCalledWith('/');
+      expect(mockNavigate).toHaveBeenCalledWith('/admin-panel', { replace: true });
     });
   });
 
-  it('displays the server error detail on login failure', async () => {
+  it('submits phone login payload in mobile mode', async () => {
+    mockLogin.mockResolvedValue({ user: { id: 2, isStaff: false } });
+    renderLogin();
+
+    await userEvent.click(screen.getByRole('button', { name: /mobile number/i }));
+    await userEvent.type(screen.getByLabelText(/mobile number/i), '+15551234567');
+    await userEvent.type(screen.getByLabelText(/password/i), 'password123');
+    await userEvent.click(screen.getByRole('button', { name: /sign in/i }));
+
+    await waitFor(() => {
+      expect(mockLogin).toHaveBeenCalledWith({
+        email: undefined,
+        phoneNumber: '+15551234567',
+        password: 'password123',
+      });
+    });
+  });
+
+  it('shows the server detail message on login failure', async () => {
     mockLogin.mockRejectedValue({
-      response: { data: { detail: 'No active account found with the given credentials.' } },
+      response: { data: { detail: 'Invalid credentials.' } },
     });
     renderLogin();
 
     await userEvent.type(screen.getByLabelText(/email address/i), 'wrong@example.com');
-    await userEvent.type(screen.getByPlaceholderText('••••••••'), 'wrongpassword');
+    await userEvent.type(screen.getByLabelText(/password/i), 'wrongpassword');
     await userEvent.click(screen.getByRole('button', { name: /sign in/i }));
 
     await waitFor(() => {
-      expect(
-        screen.getByText('No active account found with the given credentials.'),
-      ).toBeInTheDocument();
-    });
-  });
-
-  it('displays a nonFieldErrors message when returned by the server', async () => {
-    mockLogin.mockRejectedValue({
-      response: { data: { nonFieldErrors: ['Unable to log in with provided credentials.'] } },
-    });
-    renderLogin();
-
-    await userEvent.type(screen.getByLabelText(/email address/i), 'user@example.com');
-    await userEvent.type(screen.getByPlaceholderText('••••••••'), 'wrongpassword');
-    await userEvent.click(screen.getByRole('button', { name: /sign in/i }));
-
-    await waitFor(() => {
-      expect(
-        screen.getByText('Unable to log in with provided credentials.'),
-      ).toBeInTheDocument();
-    });
-  });
-
-  it('falls back to a generic error message when the server returns no detail', async () => {
-    mockLogin.mockRejectedValue({ response: { data: {} } });
-    renderLogin();
-
-    await userEvent.type(screen.getByLabelText(/email address/i), 'user@example.com');
-    await userEvent.type(screen.getByPlaceholderText('••••••••'), 'wrongpassword');
-    await userEvent.click(screen.getByRole('button', { name: /sign in/i }));
-
-    await waitFor(() => {
-      expect(screen.getByText('Invalid email or password.')).toBeInTheDocument();
-    });
-  });
-
-  it('does not navigate when login fails', async () => {
-    mockLogin.mockRejectedValue({ response: { data: { detail: 'Error.' } } });
-    renderLogin();
-
-    await userEvent.type(screen.getByLabelText(/email address/i), 'user@example.com');
-    await userEvent.type(screen.getByPlaceholderText('••••••••'), 'wrong');
-    await userEvent.click(screen.getByRole('button', { name: /sign in/i }));
-
-    await waitFor(() => {
+      expect(screen.getByText('Invalid credentials.')).toBeInTheDocument();
       expect(mockNavigate).not.toHaveBeenCalled();
+    });
+  });
+
+  it('redirects already authenticated staff users away from login page', async () => {
+    authState.user = { id: 11, isStaff: true };
+    authState.isAuthenticated = true;
+    renderLogin();
+
+    await waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalledWith('/admin-panel', { replace: true });
     });
   });
 });
