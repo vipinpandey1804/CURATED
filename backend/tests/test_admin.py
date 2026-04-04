@@ -7,14 +7,16 @@ Covers:
   - Orders admin: list, detail, status update
   - Returns admin: list, approve, reject
   - Marketing admin: coupons CRUD
-  - Users admin: list, PATCH is_staff/is_active
+  - Users admin: list, PATCH/delete, password change
   - Stats endpoint
 """
 import pytest
+from django.core import mail
 from django.utils import timezone
 from datetime import timedelta
 from moneyed import Money
 
+from apps.accounts.models import Profile
 from apps.catalog.models import Category, Product, AttributeType, AttributeValue
 from apps.orders.models import Order, OrderItem, OrderStatusHistory
 from apps.returns.models import ReturnRequest, ReturnLineItem
@@ -514,6 +516,15 @@ class TestAdminUsersAPI:
         result = resp.json()["results"][0]
         assert "isStaff" in result
         assert "isActive" in result
+        assert "dateOfBirth" in result
+
+    def test_user_detail_exposes_profile_fields(self, admin_client, user):
+        Profile.objects.create(user=user, date_of_birth="1995-06-15")
+        resp = admin_client.get(f"{self.list_url}{user.id}/")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["email"] == user.email
+        assert data["dateOfBirth"] == "1995-06-15"
 
     def test_patch_is_staff(self, admin_client, user):
         url = f"{self.list_url}{user.id}/"
@@ -529,11 +540,49 @@ class TestAdminUsersAPI:
         user.refresh_from_db()
         assert user.is_active is False
 
-    def test_cannot_delete_user(self, admin_client, user):
-        """DELETE on users endpoint should be disallowed."""
+    def test_patch_user_profile_fields(self, admin_client, user):
+        url = f"{self.list_url}{user.id}/"
+        resp = admin_client.patch(
+            url,
+            {
+                "first_name": "Updated",
+                "last_name": "Name",
+                "phone_number": "+15550000000",
+                "is_verified": True,
+                "date_of_birth": "1992-01-04",
+            },
+            format="json",
+        )
+        assert resp.status_code == 200
+        user.refresh_from_db()
+        assert user.first_name == "Updated"
+        assert user.last_name == "Name"
+        assert user.phone_number == "+15550000000"
+        assert user.is_verified is True
+        assert user.profile.date_of_birth.isoformat() == "1992-01-04"
+
+    def test_delete_user(self, admin_client, user):
         url = f"{self.list_url}{user.id}/"
         resp = admin_client.delete(url)
-        assert resp.status_code == 405
+        assert resp.status_code == 204
+        assert not type(user).objects.filter(id=user.id).exists()
+
+    def test_cannot_delete_own_admin_account(self, admin_client, admin_user):
+        url = f"{self.list_url}{admin_user.id}/"
+        resp = admin_client.delete(url)
+        assert resp.status_code == 400
+        assert "cannot delete your own admin account" in resp.json()["detail"].lower()
+
+    def test_admin_can_set_user_password_and_send_email(self, admin_client, user):
+        url = f"{self.list_url}{user.id}/set-password/"
+        resp = admin_client.post(url, {"new_password": "TempPass123!"}, format="json")
+        assert resp.status_code == 200
+        user.refresh_from_db()
+        assert user.check_password("TempPass123!")
+        assert resp.json()["emailSent"] is True
+        assert len(mail.outbox) == 1
+        assert mail.outbox[0].to == [user.email]
+        assert "TempPass123!" in mail.outbox[0].body
 
     def test_email_not_writable(self, admin_client, user):
         """Email is read-only — PATCH should not change it."""
@@ -573,12 +622,16 @@ class TestAdminStatsAPI:
         assert "returnsByStatus" in data
         assert "salesTrend" in data
         assert "userGrowth" in data
+        assert "summary" in data
+        assert "appliedFilters" in data
         assert "revenue" in data
         assert "today" in data["revenue"]
         assert "last7Days" in data["revenue"]
         assert "last30Days" in data["revenue"]
         assert len(data["salesTrend"]) == 7
         assert len(data["userGrowth"]) == 7
+        assert data["summary"]["periodDays"] == 7
+        assert data["appliedFilters"]["period"] == "week"
 
     def test_stats_counts_active_products(self, admin_client, product):
         resp = admin_client.get(self.url)
@@ -605,3 +658,36 @@ class TestAdminStatsAPI:
         today_point = next(point for point in resp.json()["salesTrend"] if point["date"] == today)
         assert today_point["orders"] >= 1
         assert today_point["revenue"] >= float(paid_order.total.amount)
+
+    def test_stats_period_filter_changes_trend_length(self, admin_client):
+        resp = admin_client.get(f"{self.url}?period=month")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert len(data["salesTrend"]) == 30
+        assert len(data["userGrowth"]) == 30
+        assert data["summary"]["periodDays"] == 30
+        assert data["appliedFilters"]["period"] == "month"
+
+    def test_stats_order_status_filter_limits_orders(self, admin_client, user, _order_defaults):
+        Order.objects.create(user=user, status=Order.OrderStatus.SHIPPED, **_order_defaults)
+        Order.objects.create(user=user, status=Order.OrderStatus.CANCELLED, **_order_defaults)
+
+        resp = admin_client.get(f"{self.url}?order_status=SHIPPED")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["totalOrders"] == 1
+        assert data["ordersByStatus"]["SHIPPED"] == 1
+        assert data["ordersByStatus"]["CANCELLED"] == 0
+        assert data["appliedFilters"]["orderStatus"] == "SHIPPED"
+
+    def test_stats_custom_range_returns_inclusive_window(self, admin_client):
+        start_date = (timezone.localdate() - timedelta(days=2)).isoformat()
+        end_date = timezone.localdate().isoformat()
+        resp = admin_client.get(f"{self.url}?period=custom&start_date={start_date}&end_date={end_date}")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["summary"]["periodDays"] == 3
+        assert len(data["salesTrend"]) == 3
+        assert data["appliedFilters"]["period"] == "custom"
+        assert data["appliedFilters"]["startDate"] == start_date
+        assert data["appliedFilters"]["endDate"] == end_date

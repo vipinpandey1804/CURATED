@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import { AlertCircle, Search } from 'lucide-react';
 import { adminUserService } from '../../services/adminUserService';
 import { AdminBadge } from '../../components/admin/ui/AdminBadge';
@@ -13,7 +14,7 @@ export default function AdminUsersPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [query, setQuery] = useState('');
-  const [confirmTarget, setConfirmTarget] = useState(null); // { user, field: 'isStaff'|'isActive', value }
+  const [confirmTarget, setConfirmTarget] = useState(null);
   const [saving, setSaving] = useState(false);
 
   const load = useCallback((q = '') => {
@@ -64,16 +65,15 @@ export default function AdminUsersPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-xl font-semibold text-gray-900">Users</h1>
-        <p className="text-sm text-gray-500 mt-1">{users.length} users loaded</p>
+        <p className="mt-1 text-sm text-gray-500">{users.length} users loaded</p>
       </div>
 
-      {/* Search */}
       <form onSubmit={handleSearch} className="flex gap-2">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
           <input
-            className="w-full pl-9 pr-3 h-9 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
-            placeholder="Search by name or email…"
+            className="h-9 w-full rounded-md border border-gray-300 pl-9 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
+            placeholder="Search by name or email..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
           />
@@ -84,58 +84,56 @@ export default function AdminUsersPage() {
         )}
       </form>
 
-      {error && <div className="flex items-center gap-2 text-red-600 text-sm"><AlertCircle className="h-4 w-4" />{error}</div>}
+      {error && <div className="flex items-center gap-2 text-sm text-red-600"><AlertCircle className="h-4 w-4" />{error}</div>}
 
       {!loading && (
-        <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+        <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
           <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b border-gray-200">
+            <thead className="border-b border-gray-200 bg-gray-50">
               <tr>
-                {['Name', 'Email', 'Phone', 'Verified', 'Staff', 'Active', 'Joined'].map((h) => (
-                  <th key={h} className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wide">{h}</th>
+                {['Name', 'Email', 'Phone', 'Verified', 'Staff', 'Active', 'Joined', 'Actions'].map((heading) => (
+                  <th key={heading} className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">{heading}</th>
                 ))}
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {users.map((u) => (
-                <tr key={u.id} className="hover:bg-gray-50">
+              {users.map((user) => (
+                <tr key={user.id} className="hover:bg-gray-50">
                   <td className="px-4 py-3">
-                    <p className="font-medium text-gray-800">
-                      {[u.firstName, u.lastName].filter(Boolean).join(' ') || '—'}
-                    </p>
+                    <Link to={`/admin-panel/users/${user.id}`} className="font-medium text-gray-800 hover:text-blue-600">
+                      {[user.firstName, user.lastName].filter(Boolean).join(' ') || 'Unnamed User'}
+                    </Link>
                   </td>
-                  <td className="px-4 py-3 text-gray-600 text-xs">{u.email}</td>
-                  <td className="px-4 py-3 text-gray-400 text-xs">{u.phoneNumber || '—'}</td>
+                  <td className="px-4 py-3 text-xs text-gray-600">{user.email}</td>
+                  <td className="px-4 py-3 text-xs text-gray-400">{user.phoneNumber || '-'}</td>
                   <td className="px-4 py-3">
-                    <AdminBadge variant={u.isVerified ? 'success' : 'default'}>
-                      {u.isVerified ? 'Yes' : 'No'}
+                    <AdminBadge variant={user.isVerified ? 'success' : 'default'}>
+                      {user.isVerified ? 'Yes' : 'No'}
                     </AdminBadge>
                   </td>
                   <td className="px-4 py-3">
-                    <AdminSwitch
-                      checked={!!u.isStaff}
-                      onCheckedChange={(v) => requestToggle(u, 'isStaff', v)}
-                    />
+                    <AdminSwitch checked={!!user.isStaff} onCheckedChange={(value) => requestToggle(user, 'isStaff', value)} />
                   </td>
                   <td className="px-4 py-3">
-                    <AdminSwitch
-                      checked={!!u.isActive}
-                      onCheckedChange={(v) => requestToggle(u, 'isActive', v)}
-                    />
+                    <AdminSwitch checked={!!user.isActive} onCheckedChange={(value) => requestToggle(user, 'isActive', value)} />
                   </td>
-                  <td className="px-4 py-3 text-gray-400 text-xs">
-                    {u.dateJoined ? new Date(u.dateJoined).toLocaleDateString() : '—'}
+                  <td className="px-4 py-3 text-xs text-gray-400">
+                    {user.dateJoined ? new Date(user.dateJoined).toLocaleDateString() : '-'}
+                  </td>
+                  <td className="px-4 py-3">
+                    <Link to={`/admin-panel/users/${user.id}`}>
+                      <AdminButton variant="outline" size="sm">View / Edit</AdminButton>
+                    </Link>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
-          {users.length === 0 && <div className="text-center py-12 text-gray-400 text-sm">No users found.</div>}
+          {users.length === 0 && <div className="py-12 text-center text-sm text-gray-400">No users found.</div>}
         </div>
       )}
 
-      {/* Staff toggle confirmation */}
-      <Dialog open={!!confirmTarget} onOpenChange={(o) => !o && setConfirmTarget(null)}>
+      <Dialog open={!!confirmTarget} onOpenChange={(open) => !open && setConfirmTarget(null)}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle>
@@ -144,18 +142,14 @@ export default function AdminUsersPage() {
             <DialogDescription>
               {confirmTarget?.value
                 ? `${confirmTarget?.user?.email} will gain admin panel access.`
-                : `${confirmTarget?.user?.email} will lose admin panel access.`}
-              {' '}Are you sure?
+                : `${confirmTarget?.user?.email} will lose admin panel access.`}{' '}
+              Are you sure?
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <AdminButton variant="outline" onClick={() => setConfirmTarget(null)} disabled={saving}>Cancel</AdminButton>
-            <AdminButton
-              variant={confirmTarget?.value ? 'default' : 'destructive'}
-              onClick={handleConfirm}
-              disabled={saving}
-            >
-              {saving ? 'Saving…' : 'Confirm'}
+            <AdminButton variant={confirmTarget?.value ? 'default' : 'destructive'} onClick={handleConfirm} disabled={saving}>
+              {saving ? 'Saving...' : 'Confirm'}
             </AdminButton>
           </DialogFooter>
         </DialogContent>

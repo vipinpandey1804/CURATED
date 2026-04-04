@@ -47,6 +47,8 @@ import AdminOrderDetailPage from './pages/admin/AdminOrderDetailPage';
 import AdminReturnsPage from './pages/admin/AdminReturnsPage';
 import AdminCouponsPage from './pages/admin/AdminCouponsPage';
 import AdminUsersPage from './pages/admin/AdminUsersPage';
+import AdminUserDetailPage from './pages/admin/AdminUserDetailPage';
+import AdminProfilePage from './pages/admin/AdminProfilePage';
 
 // Auth routes that use their own full-screen layout (no Navbar/Footer)
 const AUTH_ROUTES = ['/login', '/signup', '/forgot-password', '/reset-password', '/verify-email', '/admin-panel'];
@@ -136,6 +138,8 @@ function AdminApp() {
         <Route path="returns" element={<AdminReturnsPage />} />
         <Route path="coupons" element={<AdminCouponsPage />} />
         <Route path="users" element={<AdminUsersPage />} />
+        <Route path="users/:id" element={<AdminUserDetailPage />} />
+        <Route path="profile" element={<AdminProfilePage />} />
       </Route>
     </Routes>
   );

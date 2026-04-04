@@ -203,3 +203,5 @@ TWILIO_PHONE_NUMBER = os.environ.get("TWILIO_PHONE_NUMBER", "")
 - `/api/v1/admin/stats/` now returns chart-ready 7-day sales trend, user growth trend, and return-status breakdowns.
 - Backend stats tests were extended to cover the richer dashboard payload.
 - Backend verification this session: `backend\\venv\\Scripts\\pytest.exe backend/tests/test_admin.py -q` passed with 62 tests.
+
+- Dashboard follow-up: admin stats endpoint now supports filtered analytics via period, order_status, and return_status.

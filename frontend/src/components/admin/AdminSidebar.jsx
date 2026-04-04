@@ -81,6 +81,20 @@ export default function AdminSidebar() {
             {user?.email}
           </div>
         )}
+        <NavLink
+          to="/admin-panel/profile"
+          className={({ isActive }) =>
+            cn(
+              'flex items-center gap-3 w-full px-2 py-2 rounded-md text-sm transition-colors',
+              isActive
+                ? 'bg-gray-700 text-white font-medium'
+                : 'text-gray-400 hover:bg-gray-800 hover:text-white'
+            )
+          }
+        >
+          <Settings className="h-4 w-4 shrink-0" />
+          {!collapsed && <span>My Profile</span>}
+        </NavLink>
         <button
           onClick={handleLogout}
           className="flex items-center gap-3 w-full px-2 py-2 rounded-md text-sm text-gray-400 hover:bg-gray-800 hover:text-white transition-colors"

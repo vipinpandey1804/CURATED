@@ -1,18 +1,28 @@
-import { Outlet, useLocation, Link } from 'react-router-dom';
+import { Outlet, useLocation, Link, NavLink } from 'react-router-dom';
 import AdminSidebar from './AdminSidebar';
 
 /** Build a human-readable breadcrumb from the current path */
 function useBreadcrumb() {
   const { pathname } = useLocation();
   const parts = pathname.replace('/admin-panel', '').split('/').filter(Boolean);
+  const isUuid = (value) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
+  const detailLabels = {
+    users: 'Profile',
+    orders: 'Order Detail',
+    products: 'Edit Product',
+  };
 
   const crumbs = [{ label: 'Dashboard', to: '/admin-panel' }];
   let path = '/admin-panel';
 
-  parts.forEach((part) => {
+  parts.forEach((part, index) => {
     path += `/${part}`;
-    // Capitalise and de-hyphenate
-    const label = part.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+    let label = part.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+
+    if (isUuid(part)) {
+      label = detailLabels[parts[index - 1]] || 'Details';
+    }
+
     crumbs.push({ label, to: path });
   });
 
@@ -45,6 +55,14 @@ export default function AdminLayout() {
           </nav>
 
           <div className="ml-auto flex items-center gap-2">
+            <NavLink
+              to="/admin-panel/profile"
+              className={({ isActive }) =>
+                `text-xs transition-colors ${isActive ? 'text-gray-800' : 'text-gray-400 hover:text-gray-600'}`
+              }
+            >
+              My profile
+            </NavLink>
             <a
               href="/"
               target="_blank"

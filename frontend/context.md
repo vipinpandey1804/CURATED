@@ -215,3 +215,5 @@ VITE_API_URL=http://localhost:8000/api/v1
 - Admin dashboard now includes graphical widgets for revenue trend, customer growth, order mix, and returns queue.
 - Frontend verification this session: `npm run build` passed.
 - Vitest note: `LoginPage.test.jsx` could not execute locally because `@testing-library/dom` is missing from installed dependencies.
+
+- Dashboard follow-up: graph-only layout with period/order/return filters is now in place.

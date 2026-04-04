@@ -26,3 +26,10 @@
 ## Notes
 - Frontend build reports an existing chunk-size warning from Vite after minification.
 - The Vitest failure is environment/dependency-related, not a compile error in the updated pages.
+
+## Follow-up update
+- Dashboard converted to graph-only layout.
+- Added dashboard filters for period, order status, and return status.
+- Backend stats endpoint now accepts period, order_status, and return_status query params.
+- Verification update: backend admin tests now 64 passed and frontend build passed after filter work.
+
