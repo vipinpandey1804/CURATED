@@ -72,6 +72,7 @@ class ProductListSerializer(serializers.ModelSerializer):
 
 
 class ProductDetailSerializer(serializers.ModelSerializer):
+    category = serializers.PrimaryKeyRelatedField(read_only=True)
     category_name = serializers.CharField(source="category.name", read_only=True, default=None)
     images = ProductImageSerializer(many=True, read_only=True)
     variants = ProductVariantSerializer(many=True, read_only=True)
@@ -79,7 +80,7 @@ class ProductDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = Product
         fields = [
-            "id", "name", "slug", "description", "category_name",
+            "id", "name", "slug", "description", "category", "category_name",
             "base_price", "base_price_currency",
             "compare_at_price", "compare_at_price_currency",
             "material", "origin", "is_new", "is_featured", "is_active",

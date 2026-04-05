@@ -61,6 +61,29 @@
   .card-hover {
     @apply transition-all duration-300 hover:-translate-y-1;
   }
+
+  .announcement-track {
+    display: flex;
+    width: max-content;
+    animation: announcement-marquee 22s linear infinite;
+  }
+
+  .announcement-group {
+    @apply flex shrink-0 min-w-full justify-around;
+  }
+
+  .announcement-item {
+    @apply whitespace-nowrap px-8 uppercase;
+  }
+}
+
+@keyframes announcement-marquee {
+  from {
+    transform: translateX(-50%);
+  }
+  to {
+    transform: translateX(0%);
+  }
 }
 
 /* Custom scrollbar */

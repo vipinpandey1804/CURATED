@@ -9,6 +9,12 @@ export const adminCatalogService = {
   createProduct: (data) => api.post(`${BASE}/products/`, data).then((r) => r.data),
   updateProduct: (id, data) => api.patch(`${BASE}/products/${id}/`, data).then((r) => r.data),
   deleteProduct: (id) => api.delete(`${BASE}/products/${id}/`),
+  generateProductDescription: (data) =>
+    api.post(`${BASE}/products/generate-description/`, data).then((r) => r.data),
+  generateProductDetails: (data) =>
+    api.post(`${BASE}/products/generate-details/`, data).then((r) => r.data),
+  generateProductImage: (data) =>
+    api.post(`${BASE}/products/generate-image/`, data).then((r) => r.data),
 
   // Product images
   uploadProductImage: (productId, formData) =>

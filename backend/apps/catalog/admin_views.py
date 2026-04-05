@@ -13,6 +13,7 @@ from .serializers import (
     ProductImageSerializer,
     AttributeValueSerializer,
 )
+from .ai import CatalogAIService, CatalogAIConfigurationError, CatalogAIGenerationError
 
 
 # ─── Write serializers ────────────────────────────────────────────────────────
@@ -81,6 +82,14 @@ class AdminProductVariantWriteSerializer(serializers.ModelSerializer):
         ]
 
 
+class AdminProductAIRequestSerializer(serializers.Serializer):
+    name = serializers.CharField(max_length=300)
+    category_name = serializers.CharField(required=False, allow_blank=True)
+    description = serializers.CharField(required=False, allow_blank=True)
+    material = serializers.CharField(required=False, allow_blank=True)
+    origin = serializers.CharField(required=False, allow_blank=True)
+
+
 class AdminAttributeTypeSerializer(serializers.ModelSerializer):
     slug = serializers.SlugField(required=False, allow_blank=True)
     values = AttributeValueSerializer(many=True, read_only=True)
@@ -113,6 +122,7 @@ class AdminCategoryViewSet(viewsets.ModelViewSet):
 
 
 class AdminProductViewSet(viewsets.ModelViewSet):
+    ai_service_class = CatalogAIService
     permission_classes = [IsAdminUser]
     queryset = Product.objects.select_related("category").prefetch_related("images", "variants").order_by("-created_at")
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
@@ -124,6 +134,37 @@ class AdminProductViewSet(viewsets.ModelViewSet):
         if self.action in ("list", "retrieve"):
             return ProductDetailSerializer
         return AdminProductWriteSerializer
+
+    def _build_ai_context(self, request):
+        serializer = AdminProductAIRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        return serializer.validated_data
+
+    def _run_ai_action(self, callback):
+        try:
+            return Response(callback())
+        except CatalogAIConfigurationError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+        except CatalogAIGenerationError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_502_BAD_GATEWAY)
+
+    @action(detail=False, methods=["post"], url_path="generate-description")
+    def generate_description(self, request):
+        context = self._build_ai_context(request)
+        service = self.ai_service_class()
+        return self._run_ai_action(lambda: service.generate_description(context))
+
+    @action(detail=False, methods=["post"], url_path="generate-details")
+    def generate_details(self, request):
+        context = self._build_ai_context(request)
+        service = self.ai_service_class()
+        return self._run_ai_action(lambda: service.generate_details(context))
+
+    @action(detail=False, methods=["post"], url_path="generate-image")
+    def generate_image(self, request):
+        context = self._build_ai_context(request)
+        service = self.ai_service_class()
+        return self._run_ai_action(lambda: service.generate_image(context))
 
 
 class AdminProductImageViewSet(viewsets.ModelViewSet):

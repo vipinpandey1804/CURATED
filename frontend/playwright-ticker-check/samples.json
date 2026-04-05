@@ -1,0 +1,52 @@
+[
+  {
+    "checkpointMs": 0,
+    "timeMs": 2304.3000000044703,
+    "transform": "matrix(1, 0, 0, 1, -780.597, 0)",
+    "translateX": -780.597,
+    "barWidth": 1269,
+    "trackLeft": -780.59716796875,
+    "trackRight": 963.02783203125,
+    "trackWidth": 1743.625
+  },
+  {
+    "checkpointMs": 15000,
+    "timeMs": 17436.20000000298,
+    "transform": "matrix(1, 0, 0, 1, -47.6586, 0)",
+    "translateX": -47.6586,
+    "barWidth": 1269,
+    "trackLeft": -47.658599853515625,
+    "trackRight": 1695.9664001464844,
+    "trackWidth": 1743.625
+  },
+  {
+    "checkpointMs": 30000,
+    "timeMs": 32533.20000000298,
+    "transform": "matrix(1, 0, 0, 1, -188.148, 0)",
+    "translateX": -188.148,
+    "barWidth": 1269,
+    "trackLeft": -188.14779663085938,
+    "trackRight": 1555.4772033691406,
+    "trackWidth": 1743.625
+  },
+  {
+    "checkpointMs": 45000,
+    "timeMs": 47615.80000000447,
+    "transform": "matrix(1, 0, 0, 1, -329.442, 0)",
+    "translateX": -329.442,
+    "barWidth": 1269,
+    "trackLeft": -329.44195556640625,
+    "trackRight": 1414.1830444335938,
+    "trackWidth": 1743.625
+  },
+  {
+    "checkpointMs": 60000,
+    "timeMs": 62717.10000000149,
+    "transform": "matrix(1, 0, 0, 1, -469.929, 0)",
+    "translateX": -469.929,
+    "barWidth": 1269,
+    "trackLeft": -469.928955078125,
+    "trackRight": 1273.696044921875,
+    "trackWidth": 1743.625
+  }
+]

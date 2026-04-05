@@ -18,6 +18,7 @@ from moneyed import Money
 
 from apps.accounts.models import Profile
 from apps.catalog.models import Category, Product, AttributeType, AttributeValue
+from apps.catalog.admin_views import AdminProductViewSet
 from apps.orders.models import Order, OrderItem, OrderStatusHistory
 from apps.returns.models import ReturnRequest, ReturnLineItem
 from apps.marketing.models import CouponCode
@@ -209,6 +210,61 @@ class TestAdminProductAPI:
     def test_product_detail_unauthenticated(self, api_client, product):
         url = f"{self.list_url}{product.id}/"
         assert api_client.get(url).status_code in (401, 403)
+
+    def test_generate_product_description(self, admin_client, monkeypatch):
+        class DummyAIService:
+            def generate_description(self, context):
+                assert context["name"] == "iPhone"
+                return {"description": "A polished AI-generated product description."}
+
+        monkeypatch.setattr(AdminProductViewSet, "ai_service_class", DummyAIService)
+        resp = admin_client.post(
+            f"{self.list_url}generate-description/",
+            {"name": "iPhone", "category_name": "Phones"},
+            format="json",
+        )
+        assert resp.status_code == 200
+        assert resp.json()["description"] == "A polished AI-generated product description."
+
+    def test_generate_product_details(self, admin_client, monkeypatch):
+        class DummyAIService:
+            def generate_details(self, context):
+                assert context["name"] == "iPhone"
+                return {"material": "Aluminum and glass", "origin": "Imported"}
+
+        monkeypatch.setattr(AdminProductViewSet, "ai_service_class", DummyAIService)
+        resp = admin_client.post(
+            f"{self.list_url}generate-details/",
+            {"name": "iPhone"},
+            format="json",
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["material"] == "Aluminum and glass"
+        assert data["origin"] == "Imported"
+
+    def test_generate_product_image(self, admin_client, monkeypatch):
+        class DummyAIService:
+            def generate_image(self, context):
+                assert context["name"] == "iPhone"
+                return {
+                    "image_base64": "ZmFrZS1pbWFnZQ==",
+                    "mime_type": "image/png",
+                    "alt_text": "iPhone product image",
+                    "revised_prompt": "Studio product image",
+                }
+
+        monkeypatch.setattr(AdminProductViewSet, "ai_service_class", DummyAIService)
+        resp = admin_client.post(
+            f"{self.list_url}generate-image/",
+            {"name": "iPhone"},
+            format="json",
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["imageBase64"] == "ZmFrZS1pbWFnZQ=="
+        assert data["mimeType"] == "image/png"
+        assert data["altText"] == "iPhone product image"
 
 
 @pytest.mark.django_db

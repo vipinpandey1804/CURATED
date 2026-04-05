@@ -64,8 +64,18 @@ export default function Navbar() {
         }`}
       >
         {/* Announcement bar */}
-        <div className="bg-brand-darker text-white text-center py-2 text-xs tracking-widest">
-          COMPLIMENTARY SHIPPING ON ORDERS OVER $250
+        <div className="bg-brand-darker overflow-hidden py-2 text-xs tracking-widest text-white">
+          <div className="announcement-track">
+            {[0, 1].map((group) => (
+              <div key={group} className="announcement-group" aria-hidden={group === 1}>
+                {Array.from({ length: 4 }).map((_, index) => (
+                  <span key={`${group}-${index}`} className="announcement-item">
+                    COMPLIMENTARY SHIPPING ON ORDERS OVER $250
+                  </span>
+                ))}
+              </div>
+            ))}
+          </div>
         </div>
 
         <div className="max-w-8xl mx-auto px-6 lg:px-12">
