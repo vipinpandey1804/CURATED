@@ -184,6 +184,15 @@ class TestAdminProductAPI:
         assert resp.status_code == 200
         assert resp.json()["count"] >= 1
 
+    def test_list_products_uses_lightweight_fields(self, admin_client, product):
+        resp = admin_client.get(self.list_url)
+        assert resp.status_code == 200
+        result = resp.json()["results"][0]
+        assert "variantCount" in result
+        assert "images" in result
+        assert "variants" not in result
+        assert "description" not in result
+
     def test_create_product(self, admin_client, category):
         payload = {
             "name": "New Tee",

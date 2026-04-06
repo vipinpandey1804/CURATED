@@ -79,7 +79,7 @@ export default function Navbar() {
         </div>
 
         <div className="max-w-8xl mx-auto px-6 lg:px-12">
-          <div className="flex items-center justify-between h-16">
+          <div className="relative flex items-center h-16">
             {/* Mobile menu toggle */}
             <button
               className="lg:hidden p-2 -ml-2"
@@ -89,8 +89,8 @@ export default function Navbar() {
               {menuOpen ? <X size={20} /> : <Menu size={20} />}
             </button>
 
-            {/* Desktop nav left */}
-            <nav className="hidden lg:flex items-center gap-8">
+            {/* Desktop nav centered */}
+            <nav className="hidden lg:flex items-center gap-8 absolute left-1/2 -translate-x-1/2">
               {navLinks.map((link) => (
                 <NavLink
                   key={link.to}
@@ -107,7 +107,7 @@ export default function Navbar() {
             {/* Logo — centered */}
             <Link
               to="/"
-              className="font-serif text-2xl font-light tracking-widest2 uppercase text-brand-dark absolute left-1/2 -translate-x-1/2"
+              className="font-serif text-2xl font-light tracking-widest2 uppercase text-brand-dark absolute left-1/2 -translate-x-1/2 lg:static lg:translate-x-0"
             >
               CURATED
             </Link>

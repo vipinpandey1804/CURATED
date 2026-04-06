@@ -1,4 +1,5 @@
 from django.utils.text import slugify
+from django.db.models import Count, Prefetch, Q
 from rest_framework import serializers, viewsets, status, parsers
 from rest_framework.permissions import IsAdminUser
 from rest_framework.response import Response
@@ -110,6 +111,31 @@ class AdminAttributeValueSerializer(serializers.ModelSerializer):
         fields = ["id", "attribute_type", "value", "sort_order"]
 
 
+class AdminProductListSerializer(serializers.ModelSerializer):
+    category = serializers.PrimaryKeyRelatedField(read_only=True)
+    category_name = serializers.CharField(source="category.name", read_only=True, default=None)
+    images = serializers.SerializerMethodField()
+    variant_count = serializers.IntegerField(read_only=True)
+
+    class Meta:
+        model = Product
+        fields = [
+            "id", "name", "slug", "category", "category_name",
+            "base_price", "base_price_currency",
+            "is_active", "is_new", "is_featured",
+            "variant_count", "images",
+        ]
+
+    def get_images(self, obj):
+        images = getattr(obj, "prefetched_images", None)
+        if images is None:
+            images = list(obj.images.all()[:1])
+        primary_image = images[0] if images else None
+        if not primary_image:
+            return []
+        return ProductImageSerializer([primary_image], many=True, context=self.context).data
+
+
 # ─── ViewSets ─────────────────────────────────────────────────────────────────
 
 class AdminCategoryViewSet(viewsets.ModelViewSet):
@@ -124,16 +150,43 @@ class AdminCategoryViewSet(viewsets.ModelViewSet):
 class AdminProductViewSet(viewsets.ModelViewSet):
     ai_service_class = CatalogAIService
     permission_classes = [IsAdminUser]
-    queryset = Product.objects.select_related("category").prefetch_related("images", "variants").order_by("-created_at")
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_fields = ["is_active", "is_new", "is_featured", "category"]
     search_fields = ["name", "slug", "description"]
     ordering_fields = ["created_at", "base_price", "name"]
 
     def get_serializer_class(self):
-        if self.action in ("list", "retrieve"):
+        if self.action == "list":
+            return AdminProductListSerializer
+        if self.action == "retrieve":
             return ProductDetailSerializer
         return AdminProductWriteSerializer
+
+    def get_queryset(self):
+        base_qs = Product.objects.select_related("category").order_by("-created_at")
+
+        if self.action == "list":
+            return base_qs.annotate(
+                variant_count=Count("variants", filter=Q(variants__is_active=True), distinct=True)
+            ).prefetch_related(
+                Prefetch(
+                    "images",
+                    queryset=ProductImage.objects.only(
+                        "id", "product_id", "image", "alt_text", "sort_order"
+                    ).order_by("sort_order"),
+                    to_attr="prefetched_images",
+                )
+            )
+
+        return base_qs.prefetch_related(
+            Prefetch("images", queryset=ProductImage.objects.order_by("sort_order")),
+            Prefetch(
+                "variants",
+                queryset=ProductVariant.objects.select_related("product").prefetch_related(
+                    "attributes__attribute_type"
+                ),
+            ),
+        )
 
     def _build_ai_context(self, request):
         serializer = AdminProductAIRequestSerializer(data=request.data)

@@ -118,7 +118,7 @@ export default function AdminProductsPage() {
                     <td className="px-4 py-3 text-gray-700">
                       {p.basePrice} <span className="text-xs text-gray-400">{p.basePriceCurrency}</span>
                     </td>
-                    <td className="px-4 py-3 text-gray-500">{p.variants?.length ?? 0}</td>
+                    <td className="px-4 py-3 text-gray-500">{p.variantCount ?? p.variants?.length ?? 0}</td>
                     <td className="px-4 py-3">
                       <AdminBadge variant={p.isActive ? 'success' : 'default'}>
                         {p.isActive ? 'Active' : 'Inactive'}
