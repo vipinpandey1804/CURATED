@@ -1,5 +1,5 @@
 # Frontend Context — Nordic Commerce
-**Last Updated**: 03-04-2026  
+**Last Updated**: 07-04-2026  
 **Status**: Active Development
 
 ---
@@ -34,7 +34,7 @@ npx vitest run
 ```powershell
 node "e:\ecom-project\frontend\node_modules\@playwright\test\cli.js" test --config "e:\ecom-project\frontend\playwright.config.js"
 ```
-**Current result**: 45/45 PASSED (14 auth/e2e + 31 admin_panel)
+**Current result**: 68 passed, 13 pre-existing failures (address/checkout/full_flow/phone_otp specs require running backend with Twilio/Redis)
 
 ---
 
@@ -209,11 +209,16 @@ VITE_API_URL=http://localhost:8000/api/v1
 
 ---
 
-## Session Update � 04-04-2026
+## Session Update — 04-04-2026
 - Shared login page now redirects staff users to `/admin-panel` and normal users to `/`.
 - Signup/login/OTP success flows now use a common role-based redirect helper.
 - Admin dashboard now includes graphical widgets for revenue trend, customer growth, order mix, and returns queue.
 - Frontend verification this session: `npm run build` passed.
 - Vitest note: `LoginPage.test.jsx` could not execute locally because `@testing-library/dom` is missing from installed dependencies.
-
 - Dashboard follow-up: graph-only layout with period/order/return filters is now in place.
+
+## Session Update — 07-04-2026
+- Backend catalog fully seeded: 10 categories × 30 products = 300 products with variants + images.
+- No new frontend pages needed — existing `ProductListingPage` + `ProductDetailPage` render the seeded data automatically.
+- Playwright: 68 passed (stable), 13 pre-existing failures in address/checkout/full_flow/phone_otp (require Twilio/Redis).
+- No frontend code changes made this session.

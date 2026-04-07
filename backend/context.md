@@ -1,5 +1,5 @@
 # Backend Context — Nordic Commerce
-**Last Updated**: 03-04-2026  
+**Last Updated**: 07-04-2026  
 **Status**: Active Development
 
 ---
@@ -29,7 +29,7 @@ e:\ecom-project\backend\venv\Scripts\python.exe e:\ecom-project\backend\manage.p
 Remove-Item Env:DJANGO_SETTINGS_MODULE -ErrorAction SilentlyContinue
 e:\ecom-project\backend\venv\Scripts\pytest.exe tests/ -v
 ```
-**Current result**: 110/110 PASSED (61 admin tests + 49 existing; 8 pre-existing failures with Redis offline excluded)
+**Current result**: 114/122 PASSED (8 pre-existing failures with Redis offline excluded)
 
 ---
 
@@ -160,7 +160,7 @@ TWILIO_PHONE_NUMBER = os.environ.get("TWILIO_PHONE_NUMBER", "")
 ---
 
 ## In Progress
-- Nothing active — all implemented features tested and passing
+- Image download running: `seed_full_catalog` downloading 5 images/product from picsum.photos
 
 ## Next Steps (Planned)
 - Orders app — create order from cart, order history
@@ -172,7 +172,32 @@ TWILIO_PHONE_NUMBER = os.environ.get("TWILIO_PHONE_NUMBER", "")
 
 ---
 
-## Key Files Changed in Last Session
+## Catalog Data (Seeded — 07-04-2026)
+| Category | Products | Variant Shape | Notes |
+|---|---|---|---|
+| Knitwear | 30 | Color × Size (XS-XL) | Featured + New items |
+| Outerwear | 30 | Color × Size (XS-XL) | Leather, Wool, Down |
+| Shirts | 30 | Color × Size (XS-XL) | Linen, Oxford, Silk |
+| Trousers | 30 | Color × Size (28-36) | Wool, Linen, Denim |
+| Footwear | 30 | Color × EU Size (39-44) | Boots, Trainers, Loafers |
+| Accessories | 30 | Color × One Size | Watches, Scarves, Belts |
+| Denim | 30 | Color × Waist (28-34) | Selvedge, Raw, Organic |
+| Suits & Blazers | 30 | Color × Size (XS-XL) | Single/Double-breasted |
+| Bags & Leather Goods | 30 | Color × One Size | Totes, Clutches, Wallets |
+| Activewear | 30 | Color × Size (XS-XL) | Merino, Technical fabrics |
+
+**Totals**: 10 categories · 300 products · ~4000 variants · 15 units stock each  
+**Images**: 5 product images + 1 category image (picsum.photos seed-based)  
+**Seed command**: `python manage.py seed_full_catalog [--skip-images] [--clear]`
+
+---
+
+## Key Files Changed — Session 07-04-2026
+| File | Change |
+|------|--------|
+| `apps/catalog/management/commands/seed_full_catalog.py` | **NEW** — Full catalog seed: 10 categories × 30 products, variants, stock=15, picsum images |
+
+## Key Files Changed — Previous Sessions
 | File | Change |
 |------|--------|
 | `apps/accounts/models.py` | Added `phone_number`, `is_verified` to User; updated UserManager |
@@ -199,9 +224,18 @@ TWILIO_PHONE_NUMBER = os.environ.get("TWILIO_PHONE_NUMBER", "")
 
 ---
 
-## Session Update � 04-04-2026
+## Session Update — 04-04-2026
 - `/api/v1/admin/stats/` now returns chart-ready 7-day sales trend, user growth trend, and return-status breakdowns.
 - Backend stats tests were extended to cover the richer dashboard payload.
 - Backend verification this session: `backend\\venv\\Scripts\\pytest.exe backend/tests/test_admin.py -q` passed with 62 tests.
-
 - Dashboard follow-up: admin stats endpoint now supports filtered analytics via period, order_status, and return_status.
+
+## Session Update — 07-04-2026
+- Seeded full catalog: 10 categories × 30 products = 300 products.
+- Each product has 3–20 variants (color × size combinations), stock set to 15 units each.
+- Each product has 5 images downloaded from picsum.photos (seed-based, deterministic).
+- Each category has 1 image downloaded from picsum.photos.
+- New management command: `python manage.py seed_full_catalog [--skip-images] [--clear]`
+- Backend tests: 114 passed, 8 pre-existing Redis failures (unchanged from before).
+- Playwright E2E: 68 passed, 13 pre-existing failures in address/checkout/full_flow specs (not regression).
+- No new UI page needed — existing ProductListingPage + ProductDetailPage display the seeded data.

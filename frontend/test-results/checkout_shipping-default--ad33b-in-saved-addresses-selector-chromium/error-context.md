@@ -1,0 +1,234 @@
+# Instructions
+
+- Following Playwright test failed.
+- Explain why, be concise, respect Playwright best practices.
+- Provide a snippet of code with the fix, if possible.
+
+# Test info
+
+- Name: checkout_shipping.spec.js >> default address shows Default badge in saved addresses selector
+- Location: frontend\e2e\checkout_shipping.spec.js:134:1
+
+# Error details
+
+```
+Test timeout of 30000ms exceeded.
+```
+
+```
+Tearing down "context" exceeded the test timeout of 30000ms.
+```
+
+# Page snapshot
+
+```yaml
+- generic [ref=e2]:
+  - banner [ref=e3]:
+    - generic [ref=e5]:
+      - generic [ref=e6]:
+        - generic [ref=e7]: COMPLIMENTARY SHIPPING ON ORDERS OVER $250
+        - generic [ref=e8]: COMPLIMENTARY SHIPPING ON ORDERS OVER $250
+        - generic [ref=e9]: COMPLIMENTARY SHIPPING ON ORDERS OVER $250
+        - generic [ref=e10]: COMPLIMENTARY SHIPPING ON ORDERS OVER $250
+      - generic [ref=e11]:
+        - generic [ref=e12]: COMPLIMENTARY SHIPPING ON ORDERS OVER $250
+        - generic [ref=e13]: COMPLIMENTARY SHIPPING ON ORDERS OVER $250
+        - generic [ref=e14]: COMPLIMENTARY SHIPPING ON ORDERS OVER $250
+        - generic [ref=e15]: COMPLIMENTARY SHIPPING ON ORDERS OVER $250
+    - generic [ref=e17]:
+      - navigation [ref=e18]:
+        - link "New Arrivals" [ref=e19] [cursor=pointer]:
+          - /url: /new-arrivals
+        - link "Collections" [ref=e20] [cursor=pointer]:
+          - /url: /collections
+        - link "Editorial" [ref=e21] [cursor=pointer]:
+          - /url: /editorial
+        - link "Lookbook" [ref=e22] [cursor=pointer]:
+          - /url: /lookbook
+      - link "CURATED" [ref=e23] [cursor=pointer]:
+        - /url: /
+      - generic [ref=e24]:
+        - button "Search" [ref=e25] [cursor=pointer]:
+          - img [ref=e26]
+        - link "Wishlist" [ref=e29] [cursor=pointer]:
+          - /url: /wishlist
+          - img [ref=e30]
+        - link "Cart" [ref=e32] [cursor=pointer]:
+          - /url: /cart
+          - img [ref=e33]
+        - button "Account" [ref=e37] [cursor=pointer]:
+          - img [ref=e38]
+          - img [ref=e41]
+  - main [ref=e43]:
+    - generic [ref=e44]:
+      - navigation [ref=e45]:
+        - generic [ref=e47]: Cart
+        - generic [ref=e48]:
+          - img [ref=e49]
+          - generic [ref=e51]: Shipping
+        - generic [ref=e52]:
+          - img [ref=e53]
+          - generic [ref=e55]: Payment
+        - generic [ref=e56]:
+          - img [ref=e57]
+          - generic [ref=e59]: Confirmation
+      - generic [ref=e60]:
+        - generic [ref=e61]:
+          - heading "Shipping Details" [level=1] [ref=e62]
+          - generic [ref=e63]:
+            - paragraph [ref=e64]: Contact
+            - generic [ref=e65]:
+              - generic [ref=e66]:
+                - generic [ref=e67]: Email Address
+                - textbox [ref=e68]: vipinpandey1804@gmail.com
+              - generic [ref=e69]:
+                - generic [ref=e70]: Phone (optional)
+                - textbox [ref=e71]
+          - generic [ref=e72]:
+            - paragraph [ref=e73]: Saved Addresses
+            - generic [ref=e74]:
+              - button "Vipin Pandey Default 42 Marine Drive Mumbai, MH 400001" [ref=e75] [cursor=pointer]:
+                - generic [ref=e76]:
+                  - paragraph [ref=e77]: Vipin Pandey
+                  - generic [ref=e78]: Default
+                - paragraph [ref=e79]: 42 Marine Drive
+                - paragraph [ref=e80]: Mumbai, MH 400001
+              - button "Vipin Pandey 99 Other Road Mumbai, MH 400001" [ref=e81] [cursor=pointer]:
+                - paragraph [ref=e83]: Vipin Pandey
+                - paragraph [ref=e84]: 99 Other Road
+                - paragraph [ref=e85]: Mumbai, MH 400001
+          - generic [ref=e86]:
+            - paragraph [ref=e87]: Delivery Address
+            - generic [ref=e88]:
+              - generic [ref=e89]:
+                - generic [ref=e90]: First Name
+                - textbox [ref=e91]: Vipin
+              - generic [ref=e92]:
+                - generic [ref=e93]: Last Name
+                - textbox [ref=e94]: Pandey
+              - generic [ref=e95]:
+                - generic [ref=e96]: Street Address
+                - textbox [ref=e97]: 42 Marine Drive
+              - generic [ref=e98]:
+                - generic [ref=e99]: City
+                - textbox [ref=e100]: Mumbai
+              - generic [ref=e101]:
+                - generic [ref=e102]: State / Province
+                - textbox [ref=e103]: MH
+              - generic [ref=e104]:
+                - generic [ref=e105]: Postal Code
+                - textbox [ref=e106]: "400001"
+              - generic [ref=e107]:
+                - generic [ref=e108]: Country
+                - combobox [ref=e109]:
+                  - option "United States"
+                  - option "Canada"
+                  - option "Sweden"
+                  - option "Norway"
+                  - option "United Kingdom"
+                  - option "India" [selected]
+          - generic [ref=e110]:
+            - paragraph [ref=e111]: Shipping Method
+            - generic [ref=e112]:
+              - generic [ref=e113] [cursor=pointer]:
+                - generic [ref=e114]:
+                  - radio "Standard Shipping 5–7 business days $15" [checked] [ref=e115]
+                  - generic [ref=e116]:
+                    - paragraph [ref=e117]: Standard Shipping
+                    - paragraph [ref=e118]: 5–7 business days
+                - generic [ref=e119]: $15
+              - generic [ref=e120] [cursor=pointer]:
+                - generic [ref=e121]:
+                  - radio "Express Shipping 2–3 business days $25" [ref=e122]
+                  - generic [ref=e123]:
+                    - paragraph [ref=e124]: Express Shipping
+                    - paragraph [ref=e125]: 2–3 business days
+                - generic [ref=e126]: $25
+          - button "Continue to Payment" [ref=e127] [cursor=pointer]
+        - generic [ref=e128]:
+          - heading "Order Summary (0)" [level=2] [ref=e129]
+          - generic [ref=e130]:
+            - generic [ref=e131]:
+              - generic [ref=e132]: Subtotal
+              - generic [ref=e133]: $0
+            - generic [ref=e134]:
+              - generic [ref=e135]: Shipping
+              - generic [ref=e136]: $15
+            - generic [ref=e137]:
+              - generic [ref=e138]: Estimated Total
+              - generic [ref=e139]: $15
+  - contentinfo [ref=e140]:
+    - generic [ref=e141]:
+      - generic [ref=e142]:
+        - generic [ref=e143]:
+          - paragraph [ref=e144]: CURATED
+          - paragraph [ref=e145]: Premium commerce for the contemporary individual. Curated selections, timeless utility, and mindful design.
+          - paragraph [ref=e146]: Follow
+          - generic [ref=e147]:
+            - link "Instagram" [ref=e148] [cursor=pointer]:
+              - /url: "#"
+              - img [ref=e149]
+            - link "Twitter" [ref=e152] [cursor=pointer]:
+              - /url: "#"
+              - img [ref=e153]
+            - link "Website" [ref=e155] [cursor=pointer]:
+              - /url: "#"
+              - img [ref=e156]
+        - generic [ref=e159]:
+          - paragraph [ref=e160]: Company
+          - list [ref=e161]:
+            - listitem [ref=e162]:
+              - link "About Us" [ref=e163] [cursor=pointer]:
+                - /url: /about-us
+            - listitem [ref=e164]:
+              - link "Contact" [ref=e165] [cursor=pointer]:
+                - /url: /contact
+        - generic [ref=e166]:
+          - paragraph [ref=e167]: Shop
+          - list [ref=e168]:
+            - listitem [ref=e169]:
+              - link "New Arrivals" [ref=e170] [cursor=pointer]:
+                - /url: /new-arrivals
+            - listitem [ref=e171]:
+              - link "Collections" [ref=e172] [cursor=pointer]:
+                - /url: /collections
+            - listitem [ref=e173]:
+              - link "Editorial" [ref=e174] [cursor=pointer]:
+                - /url: /editorial
+        - generic [ref=e175]:
+          - paragraph [ref=e176]: Support
+          - list [ref=e177]:
+            - listitem [ref=e178]:
+              - link "FAQ" [ref=e179] [cursor=pointer]:
+                - /url: /checkout/shipping
+            - listitem [ref=e180]:
+              - link "Shipping" [ref=e181] [cursor=pointer]:
+                - /url: /checkout/shipping
+            - listitem [ref=e182]:
+              - link "Returns" [ref=e183] [cursor=pointer]:
+                - /url: /checkout/shipping
+            - listitem [ref=e184]:
+              - link "Contact Us" [ref=e185] [cursor=pointer]:
+                - /url: /contact
+        - generic [ref=e186]:
+          - paragraph [ref=e187]: Legal
+          - list [ref=e188]:
+            - listitem [ref=e189]:
+              - link "Privacy Policy" [ref=e190] [cursor=pointer]:
+                - /url: /checkout/shipping
+            - listitem [ref=e191]:
+              - link "Terms of Service" [ref=e192] [cursor=pointer]:
+                - /url: /checkout/shipping
+      - generic [ref=e193]:
+        - generic [ref=e194]:
+          - paragraph [ref=e195]: Join the Collective.
+          - paragraph [ref=e196]: Early access to seasonal drops and exclusive editorial content.
+        - generic [ref=e197]:
+          - textbox "Your email address" [ref=e198]
+          - button "Subscribe" [ref=e199] [cursor=pointer]
+      - generic [ref=e200]:
+        - paragraph [ref=e201]: © 2024 CURATED Nordic Commerce. All rights reserved.
+        - generic [ref=e202]:
+          - generic [ref=e203]: EN
+          - generic [ref=e204]: USD
+```
